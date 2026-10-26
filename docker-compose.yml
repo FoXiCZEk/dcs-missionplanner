@@ -1,0 +1,11 @@
+services:
+  dcs-missionplanner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dcs-missionplanner
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      - NODE_ENV=production

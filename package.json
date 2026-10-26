@@ -1,0 +1,44 @@
+{
+  "name": "dcs-missionplanner",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "docker:build": "docker build -t dcs-missionplanner .",
+    "docker:run": "docker run -d -p 8080:80 --name dcs-missionplanner dcs-missionplanner",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "file-saver": "^2.0.5",
+    "jszip": "^3.10.2",
+    "leaflet": "^1.9.4",
+    "luaparse": "^0.3.1",
+    "lucide-react": "^1.61.0",
+    "proj4": "^2.22.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/file-saver": "^2.0.7",
+    "@types/leaflet": "^1.9.22",
+    "@types/luaparse": "^0.2.13",
+    "@types/node": "^24.19.2",
+    "@types/proj4": "^2.5.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "autoprefixer": "^10.6.1",
+    "oxlint": "^1.88.0",
+    "postcss": "^8.5.31",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.4"
+  }
+}
