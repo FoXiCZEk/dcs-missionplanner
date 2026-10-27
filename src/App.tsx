@@ -23,7 +23,9 @@ import { WeatherSettingsView } from './components/WeatherSettingsView';
 import { TacticalSpawnerModal } from './components/TacticalSpawnerModal';
 import { KneeboardModal } from './components/KneeboardModal';
 import { ScenarioGeneratorModal } from './components/ScenarioGeneratorModal';
+import { FrameworkManagerModal } from './components/FrameworkManagerModal';
 import { FlightProfileDrawer } from './components/FlightProfileDrawer';
+import { getActiveFrameworksCount } from './utils/frameworkManager';
 import {
   generateTacticalScenario,
   type ScenarioGeneratorOptions,
@@ -52,6 +54,7 @@ import {
   Loader2,
   FileText,
   Sparkles,
+  Box,
 } from 'lucide-react';
 
 type ActiveViewTab = 'map' | 'triggers' | 'scripts' | 'slots' | 'weather';
@@ -71,6 +74,8 @@ export const App: React.FC = () => {
   const [isKneeboardModalOpen, setIsKneeboardModalOpen] = useState(false);
   const [isSpawnerModalOpen, setIsSpawnerModalOpen] = useState(false);
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
+  const [isFrameworkModalOpen, setIsFrameworkModalOpen] = useState(false);
+  const [targetScriptFileName, setTargetScriptFileName] = useState<string | undefined>(undefined);
   const [pendingSamTemplate, setPendingSamTemplate] = useState<SamBatteryTemplate | null>(null);
   const [pendingSupportTemplate, setPendingSupportTemplate] = useState<SupportFlightTemplate | null>(null);
   const [pendingCarrierTemplate, setPendingCarrierTemplate] = useState<CarrierGroupTemplate | null>(null);
@@ -625,7 +630,9 @@ export const App: React.FC = () => {
           >
             <FileCode className="w-3.5 h-3.5" />
             <span>Lua Studio</span>
-            <span className="text-[10px] opacity-75">({missionData.scriptFiles.length})</span>
+            <span className="text-[10px] opacity-75 font-mono">
+              ({getActiveFrameworksCount(missionData) > 0 ? `${getActiveFrameworksCount(missionData)} fw / ` : ''}{missionData.scriptFiles.length})
+            </span>
           </button>
 
           <button
@@ -654,7 +661,7 @@ export const App: React.FC = () => {
           </button>
         </nav>
 
-        {/* Tactical Spawner, Scenario Generator & Kneeboard Quick Triggers */}
+        {/* Tactical Spawner, Scenario Generator, Frameworks & Kneeboard Quick Triggers */}
         <div className="hidden md:flex items-center gap-1.5 bg-slate-950/80 p-1 rounded-lg border border-slate-800 text-xs">
           <button
             onClick={() => setIsScenarioModalOpen(true)}
@@ -663,6 +670,19 @@ export const App: React.FC = () => {
           >
             <Sparkles className="w-3.5 h-3.5 text-white" />
             <span>⚡ Generátor scénářů</span>
+          </button>
+          <button
+            onClick={() => setIsFrameworkModalOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold transition-colors"
+            title="1-Click Správce frameworků (MOOSE, MIST, Airboss, CSAR)"
+          >
+            <Box className="w-3.5 h-3.5" />
+            <span>Frameworky</span>
+            {getActiveFrameworksCount(missionData) > 0 && (
+              <span className="bg-emerald-500 text-slate-950 text-[10px] font-bold px-1.5 rounded-full font-mono">
+                {getActiveFrameworksCount(missionData)}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setIsSpawnerModalOpen(true)}
@@ -844,6 +864,9 @@ export const App: React.FC = () => {
           <LuaScriptStudio
             missionData={missionData}
             onUpdateScriptFiles={(scriptFiles) => setMissionData((prev) => ({ ...prev, scriptFiles }))}
+            onUpdateTriggers={(triggers) => setMissionData((prev) => ({ ...prev, triggers }))}
+            onUpdateMissionData={setMissionData}
+            activeFileName={targetScriptFileName}
           />
         )}
 
@@ -890,6 +913,18 @@ export const App: React.FC = () => {
         onClose={() => setIsKneeboardModalOpen(false)}
         missionData={missionData}
         selectedGroup={selectedGroup}
+      />
+
+      {/* FRAMEWORK MANAGER MODAL */}
+      <FrameworkManagerModal
+        isOpen={isFrameworkModalOpen}
+        onClose={() => setIsFrameworkModalOpen(false)}
+        missionData={missionData}
+        onUpdateMissionData={setMissionData}
+        onOpenCodeEditor={(fileName) => {
+          setTargetScriptFileName(fileName);
+          setActiveTab('scripts');
+        }}
       />
     </div>
   );
