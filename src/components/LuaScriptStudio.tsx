@@ -113,19 +113,19 @@ export const LuaScriptStudio: React.FC<LuaScriptStudioProps> = ({
   };
 
   // Pre-built Script Framework Presets
-  const applyPreset = (presetType: 'mist' | 'moose' | 'serverWatchdog') => {
+  const applyPreset = (presetType: 'mist' | 'moose' | 'airboss' | 'csar' | 'tankerRespawn' | 'serverWatchdog' | 'olympus') => {
     if (!currentFile) return;
 
     let template = '';
     if (presetType === 'mist') {
       template = `-- ==============================================================================
 -- MIST (Mission Scripting Tools) Integration Stub
--- Note: Embed full mist.lua or reference it via DO SCRIPT FILE
+-- Reference: http://wiki.hoggit.us/view/Mission_Scripting_Tools_Documentation
 -- ==============================================================================
 
 env.info("Initializing MIST utilities...")
 
--- Example: Check if all units in a group are dead
+-- Example 1: Check if all units in a group are destroyed
 function CheckGroupDestroyed(groupName)
     local grp = Group.getByName(groupName)
     if not grp or grp:isExist() == false or #grp:getUnits() == 0 then
@@ -134,30 +134,165 @@ function CheckGroupDestroyed(groupName)
     return false
 end
 
--- Example: Spawn dynamic smoke marker
-function MarkZoneWithSmoke(zoneName)
+-- Example 2: Spawn dynamic smoke marker on trigger zone
+function MarkZoneWithSmoke(zoneName, smokeColor)
     local z = trigger.misc.getZone(zoneName)
     if z then
-        trigger.action.smoke(z.point, trigger.smokeColor.Red)
+        local color = smokeColor or trigger.smokeColor.Red
+        trigger.action.smoke(z.point, color)
         trigger.action.outText("Kouřová značka aktivována v zóně: " .. zoneName, 10)
     end
 end
+
+-- Example 3: Periodic unit scanner
+mist.scheduleFunction(function()
+    env.info("MIST Periodic Scan: Active groups verified.")
+end, {}, timer.getTime() + 10, 60)
 `;
     } else if (presetType === 'moose') {
       template = `-- ==============================================================================
 -- MOOSE (Mission Object Oriented Scripting Environment) Starter
--- Ensure moose.lua is loaded in MISSION START trigger before this script
+-- Documentation: https://flightcontrol-master.github.io/MOOSE_DOCS/
+-- Ensure Moose.lua is loaded in MISSION START trigger before running this script
 -- ==============================================================================
 
 env.info("Starting MOOSE mission logic...")
 
--- Setup Blue CAP Zone with dynamic respawn
--- local CapZone = ZONE:New("Combat_Zone_Alpha")
--- local CapSquadron = SPAWN:New("Chevy 1 (CAP)")
---     :InitLimit(2, 4)
---     :SpawnScheduled(300, 0.5)
+-- 1. Setup Blue Combat Air Patrol (CAP) with dynamic respawn
+local CapZone = ZONE:New("ZONE // TARGET AREA (CAP)")
+if CapZone then
+    local CapSpawner = SPAWN:New("Chevy 1 (CAP)")
+        :InitLimit(2, 4)
+        :InitCleanUp(60)
+        :SpawnScheduled(300, 0.5)
+    env.info("MOOSE: Blue CAP Spawner initialized.")
+end
 
-env.info("MOOSE CAP Logic loaded.")
+-- 2. Setup Red QRF / Scramble on intrusion
+local DetectionSet = SET_GROUP:New():FilterCoalitions("blue"):FilterStart()
+`;
+    } else if (presetType === 'airboss') {
+      template = `-- ==============================================================================
+-- MOOSE AIRBOSS // DCS SUPERCARRIER CASE I / II / III AUTOMATED LSO & RECOVERY
+-- Requires MOOSE.lua loaded prior to this script
+-- ==============================================================================
+
+env.info("AIRBOSS: Initializing Supercarrier Airboss Controller...")
+
+-- Define Carrier
+local CarrierAirboss = AIRBOSS:New("USS Theodore Roosevelt", "CVN-71")
+
+-- Set Recovery Parameters
+CarrierAirboss:SetTACAN(71, "X", "ROO")
+CarrierAirboss:SetICLS(11, "ROO")
+CarrierAirboss:SetRadio(127.500)
+CarrierAirboss:SetBaseRecoveryCourse(270)
+CarrierAirboss:SetSoundfilesFolder("Airboss Soundfiles/")
+
+-- Setup Marshall Stack (Case III holding pattern at 6,000 ft - 12,000 ft MSL)
+CarrierAirboss:SetMarshallRadius(25)
+CarrierAirboss:SetDefaultPlayerSkill("Excellent")
+CarrierAirboss:SetMenuRecovery(true, 25, true)
+
+-- Start Recovery Windows (Case I during day, Case III at night)
+local Case1Window = CarrierAirboss:AddRecoveryWindow("10:00", "12:00", 1, 30, true)
+local Case3Window = CarrierAirboss:AddRecoveryWindow("20:00", "22:00", 3, 30, true)
+
+-- Hook Events for LSO Grading & Traps
+function CarrierAirboss:OnAfterGrading(From, Event, To, FlightRecord)
+    local grade = FlightRecord.grade
+    local points = FlightRecord.points
+    local pilot = FlightRecord.name
+    local wire = FlightRecord.wire
+    local msg = string.format("LSO // %s - Trap Wire #%d | Známka: %s (%d bodů)", pilot, wire or 0, grade or "OK", points or 0)
+    trigger.action.outText(msg, 15)
+end
+
+CarrierAirboss:Start()
+env.info("AIRBOSS: Supercarrier controller online and listening.")
+`;
+    } else if (presetType === 'csar') {
+      template = `-- ==============================================================================
+-- MOOSE CSAR (Combat Search and Rescue) for Downed Pilots & Medevac
+-- Requires MOOSE.lua loaded prior to this script
+-- ==============================================================================
+
+env.info("CSAR: Initializing Combat Search and Rescue dispatcher...")
+
+local BlueCSAR = CSAR:New(coalition.side.BLUE, "Blue Downed Pilot", "USAF CSAR")
+BlueCSAR.allowinterlock = true
+BlueCSAR.pilotmustsurvive = true
+BlueCSAR.enableForAI = false
+BlueCSAR.rescuehoverheight = 20  -- Hover rescue at 20 meters
+BlueCSAR.rescuehoverdistance = 30
+BlueCSAR.coordtype = 2 -- MGRS & Lat/Lon
+
+-- Emergency Beacon & Smoke
+BlueCSAR.beaconFrequency = 243.000 -- UHF Guard
+BlueCSAR.smokecolor = trigger.smokeColor.Green
+
+-- Hospital / MASH dropoff zones
+BlueCSAR:AddMASH("MASH_Hospital_Zone")
+
+function BlueCSAR:OnAfterPilotRescued(From, Event, To, Heli, Pilot)
+    trigger.action.outText("CSAR: Pilot " .. Pilot .. " byl úspěšně zachráněn a dopraven do nemocnice!", 15)
+end
+
+BlueCSAR:Start()
+env.info("CSAR: Rescue network activated on 243.000 MHz Guard.")
+`;
+    } else if (presetType === 'tankerRespawn') {
+      template = `-- ==============================================================================
+-- DYNAMIC TANKER & AWACS RESPAWN SCRIPT
+-- Keeps aerial refueling and early warning radar permanently active on servers
+-- ==============================================================================
+
+local function SetupPermanentSupportFlight(groupName, checkIntervalSec)
+    local interval = checkIntervalSec or 120
+    
+    local function MonitorGroup()
+        local grp = Group.getByName(groupName)
+        local needsRespawn = false
+        
+        if not grp or grp:isExist() == false then
+            needsRespawn = true
+        else
+            local units = grp:getUnits()
+            if #units == 0 or units[1]:getFuel() < 0.15 then
+                needsRespawn = true
+            end
+        end
+        
+        if needsRespawn then
+            env.info("Support Monitor: Respawning " .. groupName .. " (low fuel or inactive)...")
+            trigger.action.outText(">>> [AIR SUPPORT]: Náhradní letoun " .. groupName .. " vstupuje na orbitu <<<", 10)
+            -- Note: Requires MIST mist.respawnGroup or MOOSE SPAWN
+            if mist and mist.respawnGroup then
+                mist.respawnGroup(groupName, true)
+            end
+        end
+        
+        timer.scheduleFunction(MonitorGroup, nil, timer.getTime() + interval)
+    end
+    
+    timer.scheduleFunction(MonitorGroup, nil, timer.getTime() + interval)
+end
+
+-- Register default tanker and AWACS groups
+SetupPermanentSupportFlight("Texaco 1-1", 90)
+SetupPermanentSupportFlight("Arco 1-1", 90)
+SetupPermanentSupportFlight("Magic 1-1", 120)
+env.info("Support Flight Respawn Monitor registered.")
+`;
+    } else if (presetType === 'olympus') {
+      template = `-- ==============================================================================
+-- DCS OLYMPUS GAME MASTER LIVE SYNC CONNECTOR
+-- Allows web-based real-time tactical command & control in multiplayer
+-- ==============================================================================
+
+env.info("DCS Olympus: Checking backend hooks...")
+-- Ensure the DCS Olympus server hook is enabled in DCS Saved Games / Scripts
+trigger.action.outText("DCS Olympus Live Sync: Online", 5)
 `;
     } else if (presetType === 'serverWatchdog') {
       template = `-- ==============================================================================
@@ -303,12 +438,26 @@ env.info("Server Watchdog Broadcast registered.")
             <span>Předlohy a Šablony</span>
           </div>
 
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 max-h-48 overflow-y-auto pr-1">
             <button
-              onClick={() => applyPreset('serverWatchdog')}
-              className="text-left px-2 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded transition-colors text-[11px] flex items-center justify-between"
+              onClick={() => applyPreset('airboss')}
+              className="text-left px-2 py-1.5 bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-800/60 text-indigo-200 rounded transition-colors text-[11px] flex items-center justify-between"
             >
-              <span>Server Watchdog & Zprávy</span>
+              <span>MOOSE Airboss (Supercarrier)</span>
+              <Sparkles className="w-3 h-3 text-indigo-400" />
+            </button>
+            <button
+              onClick={() => applyPreset('csar')}
+              className="text-left px-2 py-1.5 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-200 rounded transition-colors text-[11px] flex items-center justify-between"
+            >
+              <span>MOOSE CSAR (Záchrana pilotů)</span>
+              <Sparkles className="w-3 h-3 text-emerald-400" />
+            </button>
+            <button
+              onClick={() => applyPreset('tankerRespawn')}
+              className="text-left px-2 py-1.5 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-200 rounded transition-colors text-[11px] flex items-center justify-between"
+            >
+              <span>Permanent Tanker & AWACS Respawn</span>
               <Sparkles className="w-3 h-3 text-amber-400" />
             </button>
             <button
@@ -323,7 +472,21 @@ env.info("Server Watchdog Broadcast registered.")
               className="text-left px-2 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded transition-colors text-[11px] flex items-center justify-between"
             >
               <span>MOOSE Framework Starter</span>
-              <Sparkles className="w-3 h-3 text-emerald-400" />
+              <Sparkles className="w-3 h-3 text-sky-400" />
+            </button>
+            <button
+              onClick={() => applyPreset('serverWatchdog')}
+              className="text-left px-2 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded transition-colors text-[11px] flex items-center justify-between"
+            >
+              <span>Server Watchdog & Zprávy</span>
+              <Sparkles className="w-3 h-3 text-amber-400" />
+            </button>
+            <button
+              onClick={() => applyPreset('olympus')}
+              className="text-left px-2 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded transition-colors text-[11px] flex items-center justify-between"
+            >
+              <span>DCS Olympus Live Sync</span>
+              <Sparkles className="w-3 h-3 text-slate-400" />
             </button>
           </div>
 

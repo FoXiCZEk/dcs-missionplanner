@@ -5,16 +5,20 @@ import type { AirbaseInfo, Theater } from '../types/dcs';
 const THEATER_PROJECTIONS: Record<Theater, string> = {
   Caucasus: '+proj=tmerc +lat_0=0 +lon_0=33 +k_0=0.9996 +x_0=-99516.9999999732 +y_0=-4998114.999999984 +towgs84=0,0,0,0,0,0,0 +units=m +vunits=m +ellps=WGS84 +no_defs +axis=neu',
   Syria: '+proj=tmerc +lat_0=0 +lon_0=39 +k_0=0.9996 +x_0=282801.00000003993 +y_0=-3879865.9999999935 +towgs84=0,0,0,0,0,0,0 +units=m +vunits=m +ellps=WGS84 +no_defs +axis=neu',
+  PersianGulf: '+proj=tmerc +lat_0=0 +lon_0=57 +k_0=0.9996 +x_0=-138656.9999999887 +y_0=-2745300.999999993 +towgs84=0,0,0,0,0,0,0 +units=m +vunits=m +ellps=WGS84 +no_defs +axis=neu',
+  Nevada: '+proj=tmerc +lat_0=0 +lon_0=-115 +k_0=0.9996 +x_0=-134465.0000000078 +y_0=-4009772.000000015 +towgs84=0,0,0,0,0,0,0 +units=m +vunits=m +ellps=WGS84 +no_defs +axis=neu',
 };
 
 // Initialized projector cache
 const projectors: Record<string, proj4.Converter> = {};
 
 function getProjector(theater: Theater): proj4.Converter {
-  const safeTheater: Theater =
-    theater === 'Syria' || (typeof theater === 'string' && theater.toLowerCase().includes('syria'))
-      ? 'Syria'
-      : 'Caucasus';
+  const str = String(theater).toLowerCase();
+  let safeTheater: Theater = 'Caucasus';
+  if (str.includes('syria')) safeTheater = 'Syria';
+  else if (str.includes('gulf') || str.includes('persian')) safeTheater = 'PersianGulf';
+  else if (str.includes('nevada') || str.includes('nttr')) safeTheater = 'Nevada';
+
   if (!projectors[safeTheater]) {
     projectors[safeTheater] = proj4(THEATER_PROJECTIONS[safeTheater] || THEATER_PROJECTIONS.Caucasus);
   }
@@ -51,13 +55,27 @@ export function dcsToLatLon(theater: Theater, x: number, y: number): { lat: numb
     const validY = isFinite(y) ? y : 0;
     const projector = getProjector(theater);
     const [lon, lat] = projector.inverse([validY, validX]);
-    const safeCenter = theater === 'Syria' ? [35.401, 35.949] : [42.238, 42.048];
+    const safeCenter =
+      theater === 'Syria'
+        ? [35.401, 35.949]
+        : theater === 'PersianGulf'
+        ? [25.253, 55.364]
+        : theater === 'Nevada'
+        ? [36.236, -115.034]
+        : [42.238, 42.048];
     return {
       lat: isFinite(lat) ? lat : safeCenter[0],
       lon: isFinite(lon) ? lon : safeCenter[1],
     };
   } catch {
-    const safeCenter = theater === 'Syria' ? [35.401, 35.949] : [42.238, 42.048];
+    const safeCenter =
+      theater === 'Syria'
+        ? [35.401, 35.949]
+        : theater === 'PersianGulf'
+        ? [25.253, 55.364]
+        : theater === 'Nevada'
+        ? [36.236, -115.034]
+        : [42.238, 42.048];
     return { lat: safeCenter[0], lon: safeCenter[1] };
   }
 }
@@ -169,15 +187,62 @@ export const THEATER_CONFIGS: Record<Theater, TheaterConfig> = {
       { id: 'ramat_david', name: 'Ramat David', lat: 32.665, lon: 35.179, runway: '09/27', tacan: '84X', elevation: 56 },
     ],
   },
+  PersianGulf: {
+    name: 'PersianGulf',
+    displayName: 'Perský záliv (Persian Gulf)',
+    defaultCenter: [25.253, 55.364], // Dubai / Hormuz center
+    defaultZoom: 8,
+    bounds: [
+      [22.0, 51.0],
+      [30.0, 60.5],
+    ],
+    airbases: [
+      { id: 'al_dhafra', name: 'Al Dhafra Air Base', lat: 24.248, lon: 54.547, runway: '13/31', tacan: '96X', ils: '110.70', elevation: 23 },
+      { id: 'dubai_intl', name: 'Dubai Intl', lat: 25.253, lon: 55.364, runway: '12/30', ils: '110.10', elevation: 19 },
+      { id: 'al_maktoum', name: 'Al Maktoum Intl', lat: 24.896, lon: 55.161, runway: '12/30', elevation: 52 },
+      { id: 'sharjah', name: 'Sharjah Intl', lat: 25.328, lon: 55.517, runway: '12/30', elevation: 34 },
+      { id: 'fujairah', name: 'Fujairah Intl', lat: 25.112, lon: 56.324, runway: '11/29', elevation: 46 },
+      { id: 'khasab', name: 'Khasab (Oman / Hormuz)', lat: 26.171, lon: 56.241, runway: '01/19', elevation: 30 },
+      { id: 'bandar_abbas', name: 'Bandar Abbas Intl (Iran)', lat: 27.218, lon: 56.377, runway: '03/21', elevation: 10 },
+      { id: 'qeshm', name: 'Qeshm Island (Dayrestan)', lat: 26.754, lon: 55.903, runway: '05/23', elevation: 14 },
+      { id: 'havadarya', name: 'Bandar Abbas Havadarya', lat: 27.155, lon: 56.171, runway: '08/26', elevation: 7 },
+      { id: 'sirri', name: 'Sirri Island (Iran Navy)', lat: 25.909, lon: 54.540, runway: '06/24', elevation: 13 },
+      { id: 'abu_musa', name: 'Abu Musa Island', lat: 25.875, lon: 55.033, runway: '08/26', elevation: 7 },
+      { id: 'lar', name: 'Lar Air Base', lat: 27.673, lon: 54.382, runway: '09/27', elevation: 915 },
+      { id: 'al_ain', name: 'Al Ain Intl', lat: 24.261, lon: 55.609, runway: '01/19', elevation: 262 },
+    ],
+  },
+  Nevada: {
+    name: 'Nevada',
+    displayName: 'Nevada NTTR (Red Flag)',
+    defaultCenter: [36.236, -115.034], // Nellis AFB
+    defaultZoom: 8,
+    bounds: [
+      [34.5, -118.0],
+      [38.5, -113.5],
+    ],
+    airbases: [
+      { id: 'nellis', name: 'Nellis AFB (Red Flag)', lat: 36.236, lon: -115.034, runway: '03/21', tacan: '12X', ils: '109.10', elevation: 569 },
+      { id: 'creech', name: 'Creech AFB (Indian Springs)', lat: 36.583, lon: -115.673, runway: '08/26', tacan: '87X', elevation: 966 },
+      { id: 'mccarran', name: 'McCarran Intl (Las Vegas)', lat: 36.084, lon: -115.153, runway: '01/19', ils: '111.75', elevation: 665 },
+      { id: 'groom_lake', name: 'Groom Lake (Area 51 / Homey)', lat: 37.248, lon: -115.811, runway: '14/32', tacan: '18X', elevation: 1360 },
+      { id: 'tonopah', name: 'Tonopah Test Range', lat: 37.798, lon: -116.780, runway: '14/32', tacan: '77X', elevation: 1690 },
+      { id: 'boulder_city', name: 'Boulder City Muni', lat: 35.948, lon: -114.861, runway: '15/33', elevation: 671 },
+      { id: 'laughlin', name: 'Laughlin / Bullhead Intl', lat: 35.156, lon: -114.559, runway: '16/34', elevation: 208 },
+      { id: 'lincoln_county', name: 'Lincoln County', lat: 37.790, lon: -114.423, runway: '17/35', elevation: 1478 },
+      { id: 'beatty', name: 'Beatty Airport', lat: 36.861, lon: -116.786, runway: '16/34', elevation: 966 },
+    ],
+  },
 };
 
 /**
  * Returns safe TheaterConfig for a given theater identifier, always falling back to Caucasus if undefined or unknown.
  */
 export function getTheaterConfig(theater?: string): TheaterConfig {
-  if (theater === 'Syria' || (typeof theater === 'string' && theater.toLowerCase().includes('syria'))) {
-    return THEATER_CONFIGS.Syria;
-  }
+  const str = String(theater || '').toLowerCase();
+  if (str.includes('syria')) return THEATER_CONFIGS.Syria;
+  if (str.includes('gulf') || str.includes('persian')) return THEATER_CONFIGS.PersianGulf;
+  if (str.includes('nevada') || str.includes('nttr')) return THEATER_CONFIGS.Nevada;
   return THEATER_CONFIGS.Caucasus;
 }
 
@@ -192,6 +257,14 @@ export const THEATER_BULLSEYE: Record<Theater, { blue: { lat: number; lon: numbe
   Syria: {
     blue: { lat: 37.002, lon: 35.426, name: 'Incirlik Bulls' },
     red: { lat: 33.415, lon: 36.514, name: 'Damascus Bulls' },
+  },
+  PersianGulf: {
+    blue: { lat: 24.248, lon: 54.547, name: 'Al Dhafra Bulls' },
+    red: { lat: 27.218, lon: 56.377, name: 'Bandar Abbas Bulls' },
+  },
+  Nevada: {
+    blue: { lat: 36.236, lon: -115.034, name: 'Nellis Bulls' },
+    red: { lat: 37.798, lon: -116.780, name: 'Tonopah Bulls' },
   },
 };
 
@@ -281,8 +354,9 @@ export function formatBullseye(
   lon: number,
   coalition: 'blue' | 'red' = 'blue'
 ): { bearing: number; distanceNM: number; formatted: string } {
-  const safeTh: Theater = theater === 'Syria' ? 'Syria' : 'Caucasus';
-  const bulls = THEATER_BULLSEYE[safeTh][coalition];
+  const cfg = getTheaterConfig(theater);
+  const safeTh = cfg.name;
+  const bulls = THEATER_BULLSEYE[safeTh]?.[coalition] || THEATER_BULLSEYE.Caucasus[coalition];
   const distM = calculateDistance(bulls.lat, bulls.lon, lat, lon);
   const brg = Math.round(calculateBearing(bulls.lat, bulls.lon, lat, lon));
   const nm = parseFloat((distM / 1852).toFixed(1));

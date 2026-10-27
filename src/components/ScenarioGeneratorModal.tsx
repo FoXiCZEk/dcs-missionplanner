@@ -251,9 +251,13 @@ export const ScenarioGeneratorModal: React.FC<ScenarioGeneratorModalProps> = ({
                   </button>
                   <button
                     onClick={() => setBaseType('carrier')}
+                    disabled={theater === 'Nevada'}
+                    title={theater === 'Nevada' ? 'V Nevadě nejsou k dispozici letadlové lodě' : 'Nasazení z letadlové lodi Supercarrier'}
                     className={`py-2 px-2.5 rounded-lg text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
                       baseType === 'carrier'
                         ? 'bg-indigo-600 border-indigo-400 text-white shadow'
+                        : theater === 'Nevada'
+                        ? 'bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed'
                         : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
                     }`}
                   >

@@ -1,4 +1,4 @@
-export type Theater = 'Caucasus' | 'Syria';
+export type Theater = 'Caucasus' | 'Syria' | 'PersianGulf' | 'Nevada';
 
 export type CoalitionType = 'blue' | 'red' | 'neutrals';
 
@@ -28,6 +28,7 @@ export interface Waypoint {
   action: string;
   type: string;
   formation?: string;
+  parking?: number; // Parking spot number at airbase/ramp
   task?: {
     id: 'ComboTask';
     params: {
@@ -57,6 +58,7 @@ export interface Unit {
   radio?: {
     frequency: number; // MHz or Hz
     modulation: number; // 0 = AM, 1 = FM
+    channels?: { [channelNum: number]: number }; // Preset channels 1-20 in Hz
   };
   payload?: {
     pylons?: { [pylonId: number]: { clsid: string } };

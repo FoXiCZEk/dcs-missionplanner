@@ -14,6 +14,8 @@ import {
   Compass,
   Clock,
   Crosshair,
+  Radio,
+  Zap,
 } from 'lucide-react';
 import { LoadoutEditor } from './LoadoutEditor';
 
@@ -30,7 +32,7 @@ interface InspectorPanelProps {
   onStartAddWaypointMode?: () => void;
 }
 
-type GroupTab = 'units' | 'route' | 'loadout';
+type GroupTab = 'units' | 'route' | 'loadout' | 'comms';
 type UnitSystem = 'imperial' | 'metric'; // imperial = ft/kts, metric = m/kmh
 
 export const InspectorPanel: React.FC<InspectorPanelProps> = ({
@@ -277,17 +279,30 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
           </button>
 
           {(selectedGroup.category === 'plane' || selectedGroup.category === 'helicopter') && (
-            <button
-              onClick={() => setActiveGroupTab('loadout')}
-              className={`flex-1 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
-                activeGroupTab === 'loadout'
-                  ? 'bg-emerald-500 text-slate-950 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-              }`}
-            >
-              <Crosshair className="w-3.5 h-3.5" />
-              <span>Výzbroj</span>
-            </button>
+            <>
+              <button
+                onClick={() => setActiveGroupTab('loadout')}
+                className={`flex-1 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
+                  activeGroupTab === 'loadout'
+                    ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                }`}
+              >
+                <Crosshair className="w-3.5 h-3.5" />
+                <span>Výzbroj</span>
+              </button>
+              <button
+                onClick={() => setActiveGroupTab('comms')}
+                className={`flex-1 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
+                  activeGroupTab === 'comms'
+                    ? 'bg-indigo-500 text-slate-950 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                }`}
+              >
+                <Radio className="w-3.5 h-3.5" />
+                <span>Rádio</span>
+              </button>
+            </>
           )}
         </div>
 
@@ -458,6 +473,21 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                         <option value="Landing">Landing (Přistání na letišti)</option>
                         <option value="Refueling">Refueling (Tankování za letu)</option>
                       </select>
+
+                      {wp.action.includes('Parking') && (
+                        <div className="mt-1.5 flex items-center justify-between bg-slate-900/60 p-1.5 rounded border border-slate-700/60">
+                          <label className="text-[10px] text-slate-400">Číslo stání (Ramp / Parking #):</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={999}
+                            value={wp.parking || 1}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => handleUpdateWaypoint(wp.id, { parking: Number(e.target.value) })}
+                            className="w-16 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-right font-mono text-slate-100 font-bold"
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {/* Altitude & Speed Grid */}
@@ -696,6 +726,193 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
         {/* TAB 3: LOADOUT & WEAPONS */}
         {activeGroupTab === 'loadout' && (
           <LoadoutEditor group={selectedGroup} onUpdateGroup={onUpdateGroup} />
+        )}
+
+        {/* TAB 4: COMMS & RADIO PRESETS */}
+        {activeGroupTab === 'comms' && (
+          <div className="flex-1 overflow-y-auto p-3 space-y-4">
+            {/* Primary Radio Frequency */}
+            {(() => {
+              const leadUnit = selectedGroup.units[0];
+              const curFreqMhz = leadUnit?.radio?.frequency
+                ? (leadUnit.radio.frequency / 1000000).toFixed(3)
+                : '305.000';
+              const curMod = leadUnit?.radio?.modulation ?? 0;
+              const channels = leadUnit?.radio?.channels || {};
+
+              const handleSetFreq = (mhz: number) => {
+                const hz = Math.round(mhz * 1000000);
+                const updatedUnits = selectedGroup.units.map((u) => ({
+                  ...u,
+                  radio: {
+                    ...u.radio,
+                    frequency: hz,
+                    modulation: u.radio?.modulation ?? 0,
+                  },
+                }));
+                onUpdateGroup({ ...selectedGroup, units: updatedUnits });
+              };
+
+              const handleSetModulation = (mod: number) => {
+                const updatedUnits = selectedGroup.units.map((u) => ({
+                  ...u,
+                  radio: {
+                    frequency: u.radio?.frequency ?? 305000000,
+                    modulation: mod,
+                    channels: u.radio?.channels,
+                  },
+                }));
+                onUpdateGroup({ ...selectedGroup, units: updatedUnits });
+              };
+
+              const handleSetChannel = (chNum: number, mhz: number) => {
+                const hz = Math.round(mhz * 1000000);
+                const newChannels = { ...channels, [chNum]: hz };
+                const updatedUnits = selectedGroup.units.map((u) => ({
+                  ...u,
+                  radio: {
+                    frequency: u.radio?.frequency ?? 305000000,
+                    modulation: u.radio?.modulation ?? 0,
+                    channels: newChannels,
+                  },
+                }));
+                onUpdateGroup({ ...selectedGroup, units: updatedUnits });
+              };
+
+              const handleAutoFillPresets = () => {
+                const defaultPresets: Record<number, number> = {
+                  1: 127500000, // Tower / ATC (127.500)
+                  2: leadUnit?.radio?.frequency || 305000000, // Flight TAC
+                  3: 255000000, // AWACS Magic (255.000)
+                  4: 251000000, // Tanker Texaco (251.000)
+                  5: 252000000, // Tanker Arco (252.000)
+                  6: 133000000, // JTAC Playboy (133.000)
+                  7: 260000000, // Strike Ops (260.000)
+                  8: 265000000, // Package Lead (265.000)
+                  16: 243000000, // Guard Emergency (243.000)
+                };
+                const updatedUnits = selectedGroup.units.map((u) => ({
+                  ...u,
+                  radio: {
+                    frequency: u.radio?.frequency ?? 305000000,
+                    modulation: u.radio?.modulation ?? 0,
+                    channels: defaultPresets,
+                  },
+                }));
+                onUpdateGroup({ ...selectedGroup, units: updatedUnits });
+              };
+
+              const channelLabels: Record<number, string> = {
+                1: 'Věž / ATC (Tower)',
+                2: 'Taktická letky (Flight TAC)',
+                3: 'AWACS (Magic / Overlord)',
+                4: 'Tanker Boom (Texaco)',
+                5: 'Tanker Drogue (Arco)',
+                6: 'JTAC (Playboy)',
+                7: 'Strike Primary',
+                8: 'Package Lead',
+                16: 'Guard Emergency (UHF)',
+              };
+
+              return (
+                <div className="space-y-4">
+                  {/* Primary Radio */}
+                  <div className="bg-slate-800/40 p-3 rounded-lg border border-slate-700/60 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-100 flex items-center gap-1.5 text-xs">
+                        <Radio className="w-4 h-4 text-sky-400" />
+                        <span>Primární frekvence letky (PRI)</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        Sdíleno pro {selectedGroup.units.length} letounů
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] text-slate-400 block mb-1">Frekvence (MHz)</label>
+                        <input
+                          type="number"
+                          step="0.025"
+                          value={curFreqMhz}
+                          onChange={(e) => handleSetFreq(Number(e.target.value))}
+                          className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-slate-100 font-mono font-bold text-sm focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-400 block mb-1">Modulace</label>
+                        <select
+                          value={curMod}
+                          onChange={(e) => handleSetModulation(Number(e.target.value))}
+                          className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-slate-100 font-bold focus:outline-none focus:border-sky-500"
+                        >
+                          <option value={0}>AM (VHF / UHF letecká)</option>
+                          <option value={1}>FM (Pozemní návodčí / JTAC)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Radio Presets Channels 1 - 20 */}
+                  <div className="bg-slate-800/40 p-3 rounded-lg border border-slate-700/60 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-100 flex items-center gap-1.5 text-xs">
+                        <Zap className="w-4 h-4 text-amber-400" />
+                        <span>Předvolby rádia (Presets Ch 1 - 20)</span>
+                      </span>
+
+                      <button
+                        onClick={handleAutoFillPresets}
+                        className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded text-[10px] font-bold transition-colors flex items-center gap-1"
+                        title="Automaticky nastavit kanály pro Věž, AWACS, Tanker, JTAC a Guard"
+                      >
+                        <Zap className="w-3 h-3" />
+                        <span>⚡ Vyplnit z mise</span>
+                      </button>
+                    </div>
+
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Tyto kanály budou nahrány přímo do rádia letounu v kokpitu (F/A-18C, F-16C, A-10C, F-15E).
+                    </p>
+
+                    <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+                      {Array.from({ length: 20 }, (_, i) => i + 1).map((ch) => {
+                        const freqHz = channels[ch];
+                        const freqMhz = freqHz ? (freqHz / 1000000).toFixed(3) : '';
+                        const label = channelLabels[ch] || `Kanál ${ch}`;
+
+                        return (
+                          <div
+                            key={ch}
+                            className="flex items-center justify-between bg-slate-900/80 p-2 rounded border border-slate-800 text-[11px] font-mono"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="w-6 h-5 rounded bg-slate-800 flex items-center justify-center font-bold text-slate-300 text-[10px]">
+                                {ch}
+                              </span>
+                              <span className="text-slate-300 text-xs truncate max-w-[170px]">{label}</span>
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                step="0.025"
+                                placeholder="---.---"
+                                value={freqMhz}
+                                onChange={(e) => handleSetChannel(ch, Number(e.target.value))}
+                                className="w-20 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-right text-sky-300 font-bold focus:outline-none focus:border-sky-500"
+                              />
+                              <span className="text-[10px] text-slate-500">MHz</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
         )}
       </div>
     );

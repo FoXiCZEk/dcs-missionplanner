@@ -21,10 +21,14 @@ import { packAllKneeboardsIntoZip } from './kneeboardGenerator';
  * Creates default initial mission data
  */
 export function createDefaultMission(theater: Theater = 'Caucasus'): MissionData {
-  const isCaucasus = theater === 'Caucasus';
-
-  // Default Player / Client slot (e.g. F/A-18C Hornet or F-16C ready for multiplayer)
-  const defaultUnitLatLon = isCaucasus ? { lat: 42.238, lon: 42.048 } : { lat: 37.002, lon: 35.426 }; // Senaki or Incirlik
+  const defaultUnitLatLon =
+    theater === 'Syria'
+      ? { lat: 37.002, lon: 35.426 }
+      : theater === 'PersianGulf'
+      ? { lat: 24.248, lon: 54.547 }
+      : theater === 'Nevada'
+      ? { lat: 36.236, lon: -115.034 }
+      : { lat: 42.238, lon: 42.048 };
   const defaultUnitDcs = latLonToDcs(theater, defaultUnitLatLon.lat, defaultUnitLatLon.lon);
 
   const defaultGroup: Group = {
@@ -147,7 +151,14 @@ export function createDefaultMission(theater: Theater = 'Caucasus'): MissionData
   };
 
   // Sample Trigger Zone
-  const zoneCenterLatLon = isCaucasus ? { lat: 42.5, lon: 42.5 } : { lat: 36.0, lon: 36.5 };
+  const zoneCenterLatLon =
+    theater === 'Syria'
+      ? { lat: 36.0, lon: 36.5 }
+      : theater === 'PersianGulf'
+      ? { lat: 25.5, lon: 55.5 }
+      : theater === 'Nevada'
+      ? { lat: 36.8, lon: -115.5 }
+      : { lat: 42.5, lon: 42.5 };
   const zoneDcs = latLonToDcs(theater, zoneCenterLatLon.lat, zoneCenterLatLon.lon);
   const defaultZone: TriggerZone = {
     zoneId: 1,
@@ -659,7 +670,11 @@ function formatGroupForDcs(group: Group, theater: Theater): any {
         alt: u.alt,
         speed: u.speed || 150,
         callsign: u.callsign || { [1]: 1, [2]: 1, [3]: 1, name: u.name },
-        radio: u.radio || { frequency: 124000000, modulation: 0 },
+        radio: {
+          frequency: u.radio?.frequency || 124000000,
+          modulation: u.radio?.modulation || 0,
+          ...(u.radio?.channels ? { channels: u.radio.channels } : {}),
+        },
         payload: formatPayloadForDcs(u.payload),
       };
     }),
@@ -677,6 +692,7 @@ function formatGroupForDcs(group: Group, theater: Theater): any {
           action: pt.action || 'Turning Point',
           type: pt.type || 'Turning Point',
           formation: pt.formation || '',
+          ...(pt.parking !== undefined ? { parking: pt.parking } : {}),
           task: pt.task || { id: 'ComboTask', params: { tasks: [] } },
         };
       }),
@@ -713,6 +729,10 @@ export async function importMissionFromMiz(file: File): Promise<MissionData> {
 
   if (rawTheater.toLowerCase().includes('syria')) {
     theatre = 'Syria';
+  } else if (rawTheater.toLowerCase().includes('gulf') || rawTheater.toLowerCase().includes('persian')) {
+    theatre = 'PersianGulf';
+  } else if (rawTheater.toLowerCase().includes('nevada') || rawTheater.toLowerCase().includes('nttr')) {
+    theatre = 'Nevada';
   } else {
     theatre = 'Caucasus';
   }

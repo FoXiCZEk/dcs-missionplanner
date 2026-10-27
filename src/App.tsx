@@ -23,6 +23,7 @@ import { WeatherSettingsView } from './components/WeatherSettingsView';
 import { TacticalSpawnerModal } from './components/TacticalSpawnerModal';
 import { KneeboardModal } from './components/KneeboardModal';
 import { ScenarioGeneratorModal } from './components/ScenarioGeneratorModal';
+import { FlightProfileDrawer } from './components/FlightProfileDrawer';
 import {
   generateTacticalScenario,
   type ScenarioGeneratorOptions,
@@ -560,29 +561,29 @@ export const App: React.FC = () => {
 
           <div className="h-5 w-px bg-slate-800 mx-1 hidden sm:block" />
 
-          {/* THEATER SELECTOR (Caucasus vs Syria) */}
+          {/* THEATER SELECTOR (Caucasus, Syria, PersianGulf, Nevada) */}
           <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
             <Globe2 className="w-3.5 h-3.5 text-slate-400 ml-1.5 mr-1" />
-            <button
-              onClick={() => handleSwitchTheater('Caucasus')}
-              className={`px-2.5 py-1 rounded transition-colors font-semibold ${
-                missionData.theatre === 'Caucasus'
-                  ? 'bg-sky-500 text-slate-950 shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Kavkaz
-            </button>
-            <button
-              onClick={() => handleSwitchTheater('Syria')}
-              className={`px-2.5 py-1 rounded transition-colors font-semibold ${
-                missionData.theatre === 'Syria'
-                  ? 'bg-sky-500 text-slate-950 shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Sýrie
-            </button>
+            {(
+              [
+                { id: 'Caucasus', label: 'Kavkaz' },
+                { id: 'Syria', label: 'Sýrie' },
+                { id: 'PersianGulf', label: 'Záliv' },
+                { id: 'Nevada', label: 'Nevada' },
+              ] as const
+            ).map((th) => (
+              <button
+                key={th.id}
+                onClick={() => handleSwitchTheater(th.id)}
+                className={`px-2 py-1 rounded transition-colors font-semibold ${
+                  missionData.theatre === th.id
+                    ? 'bg-sky-500 text-slate-950 shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {th.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -818,6 +819,17 @@ export const App: React.FC = () => {
               onUpdateZone={handleUpdateZone}
               onDeleteZone={handleDeleteZone}
             />
+
+            {/* Bottom Vertical Profile & TOT Drawer for Aircraft */}
+            {selectedGroup &&
+              (selectedGroup.category === 'plane' || selectedGroup.category === 'helicopter') && (
+                <FlightProfileDrawer
+                  group={selectedGroup}
+                  selectedWaypointId={selectedWaypointId}
+                  onSelectWaypoint={setSelectedWaypointId}
+                  missionStartTime={missionData.startTime}
+                />
+              )}
           </>
         )}
 

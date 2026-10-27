@@ -198,6 +198,32 @@ function getTheaterScenarioPoints(theater: Theater, type: ScenarioType) {
     };
   }
 
+  if (theater === 'PersianGulf') {
+    if (type === 'anti_ship') {
+      return {
+        baseAirfield: { name: 'Al Dhafra Air Base', lat: 24.248, lon: 54.547 },
+        carrierPoint: { lat: 25.400, lon: 55.100 },
+        targetPoint: { lat: 26.600, lon: 55.700 }, // Hormuz / Qeshm
+        holdingPoint: { lat: 25.800, lon: 55.300 },
+      };
+    }
+    return {
+      baseAirfield: { name: 'Al Dhafra Air Base', lat: 24.248, lon: 54.547 },
+      carrierPoint: { lat: 25.400, lon: 55.100 },
+      targetPoint: { lat: 26.754, lon: 55.903 }, // Qeshm / Bandar Abbas corridor
+      holdingPoint: { lat: 25.900, lon: 55.400 },
+    };
+  }
+
+  if (theater === 'Nevada') {
+    return {
+      baseAirfield: { name: 'Nellis AFB', lat: 36.236, lon: -115.034 },
+      carrierPoint: { lat: 36.236, lon: -115.034 },
+      targetPoint: { lat: 37.248, lon: -115.811 }, // Groom Lake / Tonopah target array
+      holdingPoint: { lat: 36.800, lon: -115.400 },
+    };
+  }
+
   // Caucasus default
   if (type === 'anti_ship') {
     return {
