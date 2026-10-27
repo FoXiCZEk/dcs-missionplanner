@@ -22,6 +22,11 @@ import { MultiplayerSlots } from './components/MultiplayerSlots';
 import { WeatherSettingsView } from './components/WeatherSettingsView';
 import { TacticalSpawnerModal } from './components/TacticalSpawnerModal';
 import { KneeboardModal } from './components/KneeboardModal';
+import { ScenarioGeneratorModal } from './components/ScenarioGeneratorModal';
+import {
+  generateTacticalScenario,
+  type ScenarioGeneratorOptions,
+} from './utils/scenarioGenerator';
 import {
   createSamBatteryGroup,
   createSupportFlightGroup,
@@ -45,6 +50,7 @@ import {
   Shield,
   Loader2,
   FileText,
+  Sparkles,
 } from 'lucide-react';
 
 type ActiveViewTab = 'map' | 'triggers' | 'scripts' | 'slots' | 'weather';
@@ -63,6 +69,7 @@ export const App: React.FC = () => {
   >('none');
   const [isKneeboardModalOpen, setIsKneeboardModalOpen] = useState(false);
   const [isSpawnerModalOpen, setIsSpawnerModalOpen] = useState(false);
+  const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
   const [pendingSamTemplate, setPendingSamTemplate] = useState<SamBatteryTemplate | null>(null);
   const [pendingSupportTemplate, setPendingSupportTemplate] = useState<SupportFlightTemplate | null>(null);
   const [pendingCarrierTemplate, setPendingCarrierTemplate] = useState<CarrierGroupTemplate | null>(null);
@@ -434,6 +441,40 @@ export const App: React.FC = () => {
     );
   };
 
+  // Generate Tactical Scenario
+  const handleGenerateScenario = (options: ScenarioGeneratorOptions) => {
+    try {
+      const updatedMission = generateTacticalScenario(options, missionData);
+      setMissionData(updatedMission);
+
+      // Find player flight
+      const playerFlight =
+        updatedMission.groups.find((g) => g.name.startsWith('Chevy 1')) ||
+        updatedMission.groups[updatedMission.groups.length - 1];
+
+      if (playerFlight) {
+        setSelectedGroup(playerFlight);
+        setSelectedZone(null);
+        setSelectedWaypointId(1);
+        if (playerFlight.units[0]) {
+          setPanToCoordinates({
+            lat: playerFlight.units[0].lat,
+            lon: playerFlight.units[0].lon,
+            ts: Date.now(),
+          });
+        }
+      }
+
+      showNotification(
+        'success',
+        `Taktický scénář OP ${options.type.toUpperCase()} byl úspěšně vygenerován! Letka: ${options.playerFlightCount}x ${options.playerAirframe}.`
+      );
+    } catch (err: any) {
+      console.error('Error generating scenario:', err);
+      showNotification('error', `Chyba při generování scénáře: ${err.message}`);
+    }
+  };
+
   // Update Group
   const handleUpdateGroup = (group: Group) => {
     setMissionData((prev) => ({
@@ -612,15 +653,23 @@ export const App: React.FC = () => {
           </button>
         </nav>
 
-        {/* Tactical Spawner & Kneeboard Quick Triggers */}
-        <div className="hidden lg:flex items-center gap-1.5 bg-slate-950/80 p-1 rounded-lg border border-slate-800 text-xs">
+        {/* Tactical Spawner, Scenario Generator & Kneeboard Quick Triggers */}
+        <div className="hidden md:flex items-center gap-1.5 bg-slate-950/80 p-1 rounded-lg border border-slate-800 text-xs">
+          <button
+            onClick={() => setIsScenarioModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1 rounded bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-500 hover:to-sky-500 text-white font-bold shadow-md shadow-indigo-600/30 transition-all"
+            title="Automatický generátor scénářů (SEAD, STRIKE, CAS, CAP, ASuW)"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-white" />
+            <span>⚡ Generátor scénářů</span>
+          </button>
           <button
             onClick={() => setIsSpawnerModalOpen(true)}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold transition-colors"
             title="1-Click Spawner pro PVO baterie a Tanker / AWACS okruhy"
           >
             <Zap className="w-3.5 h-3.5" />
-            <span>Taktický Spawner</span>
+            <span>Spawner</span>
           </button>
           <button
             onClick={() => setIsKneeboardModalOpen(true)}
@@ -716,6 +765,7 @@ export const App: React.FC = () => {
               onPlaceCarrierGroup={handlePlaceCarrierGroup}
               onOpenKneeboard={() => setIsKneeboardModalOpen(true)}
               onOpenSpawner={() => setIsSpawnerModalOpen(true)}
+              onOpenScenarioGenerator={() => setIsScenarioModalOpen(true)}
               panToCoordinates={panToCoordinates}
             />
 
@@ -807,6 +857,19 @@ export const App: React.FC = () => {
         onSelectSamTemplate={handleSelectSamTemplate}
         onSelectSupportTemplate={handleSelectSupportTemplate}
         onSelectCarrierTemplate={handleSelectCarrierTemplate}
+      />
+
+      {/* SCENARIO GENERATOR MODAL */}
+      <ScenarioGeneratorModal
+        isOpen={isScenarioModalOpen}
+        onClose={() => setIsScenarioModalOpen(false)}
+        theater={missionData.theatre}
+        onGenerateScenario={handleGenerateScenario}
+        mapCenterCoords={
+          selectedGroup?.units[0]
+            ? { lat: selectedGroup.units[0].lat, lon: selectedGroup.units[0].lon }
+            : undefined
+        }
       />
 
       {/* KNEEBOARD PREVIEW & EXPORT MODAL */}

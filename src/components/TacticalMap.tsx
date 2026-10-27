@@ -27,6 +27,7 @@ import {
   Copy,
   Check,
   Compass,
+  Sparkles,
 } from 'lucide-react';
 
 interface TacticalMapProps {
@@ -49,6 +50,7 @@ interface TacticalMapProps {
   onPlaceCarrierGroup?: (lat: number, lon: number) => void;
   onOpenKneeboard?: () => void;
   onOpenSpawner?: () => void;
+  onOpenScenarioGenerator?: () => void;
   panToCoordinates?: { lat: number; lon: number; ts: number } | null;
 }
 
@@ -74,6 +76,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   onPlaceCarrierGroup,
   onOpenKneeboard,
   onOpenSpawner,
+  onOpenScenarioGenerator,
   panToCoordinates,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -1133,7 +1136,19 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
               className="flex items-center gap-1.5 px-3 py-1 rounded bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 font-bold shadow-md shadow-amber-600/30 transition-all"
             >
               <Zap className="w-3.5 h-3.5 text-slate-950 fill-slate-950" />
-              <span>1-Click Spawner (PVO & Tankery)</span>
+              <span>1-Click Spawner</span>
+            </button>
+          )}
+
+          {/* Tactical Scenario Generator */}
+          {onOpenScenarioGenerator && (
+            <button
+              onClick={onOpenScenarioGenerator}
+              title="Automatický generátor scénářů (SEAD, STRIKE, CAS, CAP, ASuW)"
+              className="flex items-center gap-1.5 px-3 py-1 rounded bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-500 hover:to-sky-500 text-white font-bold shadow-md shadow-indigo-600/30 transition-all"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-white" />
+              <span>⚡ Generátor scénářů</span>
             </button>
           )}
 
