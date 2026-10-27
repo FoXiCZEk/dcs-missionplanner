@@ -25,8 +25,10 @@ import { KneeboardModal } from './components/KneeboardModal';
 import {
   createSamBatteryGroup,
   createSupportFlightGroup,
+  createCarrierStrikeGroup,
   type SamBatteryTemplate,
   type SupportFlightTemplate,
+  type CarrierGroupTemplate,
 } from './data/dcsPresets';
 import {
   Map,
@@ -57,12 +59,13 @@ export const App: React.FC = () => {
   const [selectedZone, setSelectedZone] = useState<TriggerZone | null>(null);
   const [selectedWaypointId, setSelectedWaypointId] = useState<number | null>(null);
   const [addMode, setAddMode] = useState<
-    'none' | 'addBlue' | 'addRed' | 'addZone' | 'addWp' | 'placeSam' | 'placeSupport'
+    'none' | 'addBlue' | 'addRed' | 'addZone' | 'addWp' | 'placeSam' | 'placeSupport' | 'placeCarrier'
   >('none');
   const [isKneeboardModalOpen, setIsKneeboardModalOpen] = useState(false);
   const [isSpawnerModalOpen, setIsSpawnerModalOpen] = useState(false);
   const [pendingSamTemplate, setPendingSamTemplate] = useState<SamBatteryTemplate | null>(null);
   const [pendingSupportTemplate, setPendingSupportTemplate] = useState<SupportFlightTemplate | null>(null);
+  const [pendingCarrierTemplate, setPendingCarrierTemplate] = useState<CarrierGroupTemplate | null>(null);
   const [isUnitSidebarOpen, setIsUnitSidebarOpen] = useState(true);
   const [panToCoordinates, setPanToCoordinates] = useState<{ lat: number; lon: number; ts: number } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -365,6 +368,72 @@ export const App: React.FC = () => {
     );
   };
 
+  // 1-Click Carrier Strike Group (CSG / Supercarrier) Spawner
+  const handleSelectCarrierTemplate = (template: CarrierGroupTemplate) => {
+    setPendingCarrierTemplate(template);
+    setPendingSamTemplate(null);
+    setPendingSupportTemplate(null);
+    setAddMode('placeCarrier');
+    setIsSpawnerModalOpen(false);
+    showNotification(
+      'success',
+      `Klikněte do moře pro umístění svazu "${template.carrierName}". BRC kurz: ${template.defaultBrcDeg}°, rychlost: ${template.speedKnots} kts.`
+    );
+  };
+
+  // Map Placement for Carrier Strike Group
+  const handlePlaceCarrierGroup = (lat: number, lon: number) => {
+    if (!pendingCarrierTemplate) return;
+
+    // Align carrier BRC into the wind if ground wind > 1 m/s, otherwise default
+    const groundWind = missionData.weather?.wind?.atGround;
+    let brcDeg = pendingCarrierTemplate.defaultBrcDeg;
+    if (groundWind && groundWind.speed > 1) {
+      brcDeg = Math.round((groundWind.dir + 180) % 360);
+    }
+
+    const { carrierGroup, rescueHeliGroup, totalUnitsCount, totalGroupsCount } = createCarrierStrikeGroup(
+      pendingCarrierTemplate,
+      missionData.theatre,
+      lat,
+      lon,
+      brcDeg,
+      missionData.nextId.groupId,
+      missionData.nextId.unitId
+    );
+
+    const newGroups = [carrierGroup];
+    if (rescueHeliGroup) {
+      newGroups.push(rescueHeliGroup);
+    }
+
+    setMissionData((prev) => ({
+      ...prev,
+      groups: [...prev.groups, ...newGroups],
+      nextId: {
+        ...prev.nextId,
+        groupId: prev.nextId.groupId + totalGroupsCount,
+        unitId: prev.nextId.unitId + totalUnitsCount,
+      },
+    }));
+
+    setSelectedGroup(carrierGroup);
+    setSelectedZone(null);
+    setSelectedWaypointId(1);
+    setPendingCarrierTemplate(null);
+
+    const tacanStr = pendingCarrierTemplate.tacan.channel > 0
+      ? `TACAN ${pendingCarrierTemplate.tacan.channel}${pendingCarrierTemplate.tacan.mode} (${pendingCarrierTemplate.tacan.callsign})`
+      : 'Bez TACAN';
+    const iclsStr = pendingCarrierTemplate.icls ? `, ICLS Ch ${pendingCarrierTemplate.icls.channel}` : '';
+    const heliStr = rescueHeliGroup ? ' + vrtulník Pedro (Plane Guard)' : '';
+
+    showNotification(
+      'success',
+      `Úderný svaz ${pendingCarrierTemplate.carrierName} (${carrierGroup.units.length} lodí${heliStr}) byl nasazen! ${tacanStr}${iclsStr}, BRC ${brcDeg}°.`
+    );
+  };
+
   // Update Group
   const handleUpdateGroup = (group: Group) => {
     setMissionData((prev) => ({
@@ -644,6 +713,7 @@ export const App: React.FC = () => {
               onAddWaypoint={handleAddWaypoint}
               onPlaceSamBattery={handlePlaceSamBattery}
               onPlaceSupportFlight={handlePlaceSupportFlight}
+              onPlaceCarrierGroup={handlePlaceCarrierGroup}
               onOpenKneeboard={() => setIsKneeboardModalOpen(true)}
               onOpenSpawner={() => setIsSpawnerModalOpen(true)}
               panToCoordinates={panToCoordinates}
@@ -736,6 +806,7 @@ export const App: React.FC = () => {
         onClose={() => setIsSpawnerModalOpen(false)}
         onSelectSamTemplate={handleSelectSamTemplate}
         onSelectSupportTemplate={handleSelectSupportTemplate}
+        onSelectCarrierTemplate={handleSelectCarrierTemplate}
       />
 
       {/* KNEEBOARD PREVIEW & EXPORT MODAL */}

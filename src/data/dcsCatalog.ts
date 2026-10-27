@@ -81,11 +81,24 @@ export const DCS_CATALOG: CatalogItem[] = [
   { id: 'BMP-3', name: 'BMP-3 IFV', category: 'vehicle', coalition: 'red', role: 'Infantry Fighting Vehicle' },
   { id: 'BTR-82A', name: 'BTR-82A APC', category: 'vehicle', coalition: 'red', role: 'Armored Personnel Carrier' },
 
-  // --- SHIPS ---
-  { id: 'CVN_75', name: 'USS Harry S. Truman (CVN-75)', category: 'ship', coalition: 'blue', role: 'Aircraft Carrier' },
-  { id: 'LHA_Tarawa', name: 'USS Tarawa (LHA-1)', category: 'ship', coalition: 'blue', role: 'Amphibious Assault' },
-  { id: 'TICONDEROG', name: 'Ticonderoga CG-47', category: 'ship', coalition: 'blue', role: 'Guided Missile Cruiser', threatRadius: 80000 },
-  { id: 'KUZNECOW', name: 'Admiral Kuznetsov CV', category: 'ship', coalition: 'red', role: 'Aircraft Carrier' },
+  // --- SHIPS & CARRIERS (DCS SUPERCARRIER & FLEET) ---
+  { id: 'CVN_71', name: 'USS Theodore Roosevelt (CVN-71) [Supercarrier]', category: 'ship', coalition: 'blue', role: 'Nuclear Aircraft Carrier' },
+  { id: 'CVN_72', name: 'USS Abraham Lincoln (CVN-72) [Supercarrier]', category: 'ship', coalition: 'blue', role: 'Nuclear Aircraft Carrier' },
+  { id: 'CVN_73', name: 'USS George Washington (CVN-73) [Supercarrier]', category: 'ship', coalition: 'blue', role: 'Nuclear Aircraft Carrier' },
+  { id: 'CVN_74', name: 'USS John C. Stennis (CVN-74) [Supercarrier]', category: 'ship', coalition: 'blue', role: 'Nuclear Aircraft Carrier' },
+  { id: 'CVN_75', name: 'USS Harry S. Truman (CVN-75) [Supercarrier]', category: 'ship', coalition: 'blue', role: 'Nuclear Aircraft Carrier' },
+  { id: 'Stennis', name: 'USS John C. Stennis (Base Carrier)', category: 'ship', coalition: 'blue', role: 'Aircraft Carrier' },
+  { id: 'Forrestal', name: 'USS Forrestal (CV-59)', category: 'ship', coalition: 'blue', role: 'Aircraft Carrier' },
+  { id: 'LHA_Tarawa', name: 'USS Tarawa (LHA-1)', category: 'ship', coalition: 'blue', role: 'Amphibious Assault Ship' },
+  { id: 'TICONDEROG', name: 'Ticonderoga CG-47 Aegis Cruiser', category: 'ship', coalition: 'blue', role: 'Guided Missile Cruiser', threatRadius: 80000 },
+  { id: 'ArleighBurke', name: 'Arleigh Burke DDG-51 Flight IIA Destroyer', category: 'ship', coalition: 'blue', role: 'Guided Missile Destroyer', threatRadius: 75000 },
+  { id: 'PERRY', name: 'Oliver Hazard Perry FFG-7 Frigate', category: 'ship', coalition: 'blue', role: 'Guided Missile Frigate', threatRadius: 35000 },
+  { id: 'SH-60B', name: 'SH-60B Seahawk (Plane Guard / SAR)', category: 'helicopter', coalition: 'blue', role: 'Carrier SAR & ASW' },
+
+  { id: 'KUZNECOW', name: 'Admiral Kuznetsov CV', category: 'ship', coalition: 'red', role: 'Heavy Aircraft Cruiser' },
   { id: 'MOSKVA', name: 'Moskva Slava-class Cruiser', category: 'ship', coalition: 'red', role: 'Guided Missile Cruiser', threatRadius: 90000 },
-  { id: 'ALBATROS', name: 'Grisha Albatros Corvette', category: 'ship', coalition: 'red', role: 'Corvette', threatRadius: 15000 },
+  { id: 'PIOTR', name: 'Pyotr Velikiy (Kirov-class Battlecruiser)', category: 'ship', coalition: 'red', role: 'Heavy Missile Battlecruiser', threatRadius: 120000 },
+  { id: 'NEUSTRASH', name: 'Neustrashimy-class Frigate', category: 'ship', coalition: 'red', role: 'Frigate', threatRadius: 40000 },
+  { id: 'ALBATROS', name: 'Grisha Albatros Corvette', category: 'ship', coalition: 'red', role: 'ASW Corvette', threatRadius: 15000 },
+  { id: 'Ka-27', name: 'Ka-27 Helix (SAR / ASW)', category: 'helicopter', coalition: 'red', role: 'Carrier SAR & ASW' },
 ];

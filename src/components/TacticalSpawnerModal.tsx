@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import {
   SAM_BATTERY_TEMPLATES,
   SUPPORT_FLIGHT_TEMPLATES,
+  CARRIER_GROUP_TEMPLATES,
   type SamBatteryTemplate,
   type SupportFlightTemplate,
+  type CarrierGroupTemplate,
 } from '../data/dcsPresets';
 import {
   ShieldAlert,
   Fuel,
+  Anchor,
   X,
   Plus,
   Crosshair,
@@ -19,6 +22,7 @@ interface TacticalSpawnerModalProps {
   onClose: () => void;
   onSelectSamTemplate: (template: SamBatteryTemplate) => void;
   onSelectSupportTemplate: (template: SupportFlightTemplate) => void;
+  onSelectCarrierTemplate: (template: CarrierGroupTemplate) => void;
 }
 
 export const TacticalSpawnerModal: React.FC<TacticalSpawnerModalProps> = ({
@@ -26,8 +30,9 @@ export const TacticalSpawnerModal: React.FC<TacticalSpawnerModalProps> = ({
   onClose,
   onSelectSamTemplate,
   onSelectSupportTemplate,
+  onSelectCarrierTemplate,
 }) => {
-  const [activeTab, setActiveTab] = useState<'sam' | 'support'>('sam');
+  const [activeTab, setActiveTab] = useState<'sam' | 'support' | 'carrier'>('carrier');
   const [filterCoalition, setFilterCoalition] = useState<'all' | 'blue' | 'red'>('all');
 
   if (!isOpen) return null;
@@ -40,9 +45,13 @@ export const TacticalSpawnerModal: React.FC<TacticalSpawnerModalProps> = ({
     (s) => filterCoalition === 'all' || s.coalition === filterCoalition
   );
 
+  const filteredCarriers = CARRIER_GROUP_TEMPLATES.filter(
+    (s) => filterCoalition === 'all' || s.coalition === filterCoalition
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden text-slate-100 font-sans">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden text-slate-100 font-sans">
         {/* Header */}
         <div className="p-4 border-b border-slate-800 bg-slate-850 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -54,7 +63,7 @@ export const TacticalSpawnerModal: React.FC<TacticalSpawnerModalProps> = ({
                 1-CLICK TAKTICKÝ GENERÁTOR OBJEKTŮ
               </h2>
               <p className="text-xs text-slate-400">
-                Okamžité umístění kompletních baterií PVO nebo tankerů a AWACS s vyčkávacími okruhy
+                Okamžité umístění úderných svazů letadlových lodí, baterií PVO nebo tankerů s TACAN a vyčkáváním
               </p>
             </div>
           </div>
@@ -68,30 +77,42 @@ export const TacticalSpawnerModal: React.FC<TacticalSpawnerModalProps> = ({
         </div>
 
         {/* Tab Switcher & Coalition Filter */}
-        <div className="px-5 py-2.5 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between gap-3 shrink-0">
+        <div className="px-5 py-2.5 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between gap-3 shrink-0 overflow-x-auto">
           <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs font-semibold">
             <button
+              onClick={() => setActiveTab('carrier')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors whitespace-nowrap ${
+                activeTab === 'carrier'
+                  ? 'bg-blue-500 text-slate-950 font-bold shadow'
+                  : 'text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              <Anchor className="w-3.5 h-3.5" />
+              <span>Letadlové lodě & CSG ({CARRIER_GROUP_TEMPLATES.length})</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('sam')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors whitespace-nowrap ${
                 activeTab === 'sam'
                   ? 'bg-amber-500 text-slate-950 font-bold shadow'
                   : 'text-slate-300 hover:bg-slate-800'
               }`}
             >
               <ShieldAlert className="w-3.5 h-3.5" />
-              <span>Kompletní Baterie PVO ({SAM_BATTERY_TEMPLATES.length})</span>
+              <span>Baterie PVO ({SAM_BATTERY_TEMPLATES.length})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('support')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors whitespace-nowrap ${
                 activeTab === 'support'
                   ? 'bg-sky-500 text-slate-950 font-bold shadow'
                   : 'text-slate-300 hover:bg-slate-800'
               }`}
             >
               <Fuel className="w-3.5 h-3.5" />
-              <span>Tankery & AWACS Okruhy ({SUPPORT_FLIGHT_TEMPLATES.length})</span>
+              <span>Tankery & AWACS ({SUPPORT_FLIGHT_TEMPLATES.length})</span>
             </button>
           </div>
 
@@ -125,7 +146,127 @@ export const TacticalSpawnerModal: React.FC<TacticalSpawnerModalProps> = ({
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
-          {/* TAB 1: SAM BATTERIES */}
+          {/* TAB 1: CARRIER STRIKE GROUPS (CSG & SUPERCARRIER) */}
+          {activeTab === 'carrier' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {filteredCarriers.map((template) => {
+                const isBlue = template.coalition === 'blue';
+                const freqMhz = (template.atcFrequencyHz / 1000000).toFixed(3);
+
+                return (
+                  <div
+                    key={template.id}
+                    className="bg-slate-950/70 border border-slate-800 hover:border-slate-700 rounded-xl p-4 space-y-3 flex flex-col justify-between transition-all"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-1 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`text-[10px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                              isBlue
+                                ? 'bg-sky-950 text-sky-400 border border-sky-800'
+                                : 'bg-red-950 text-red-400 border border-red-800'
+                            }`}
+                          >
+                            {template.coalition}
+                          </span>
+
+                          {template.isSupercarrier && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono">
+                              ★ SUPERCARRIER MOD
+                            </span>
+                          )}
+                        </div>
+
+                        {template.tacan && template.tacan.channel > 0 && (
+                          <span className="text-[11px] font-mono font-bold text-amber-300 bg-amber-950/70 border border-amber-600/70 px-1.5 py-0.2 rounded">
+                            TCN: {template.tacan.channel}{template.tacan.mode} ({template.tacan.callsign})
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 className="font-bold text-slate-100 text-sm flex items-center gap-1.5">
+                        <Anchor className="w-4 h-4 text-sky-400 shrink-0" />
+                        <span>{template.name}</span>
+                      </h3>
+
+                      <p className="text-xs text-slate-400 leading-relaxed">{template.description}</p>
+
+                      {/* Communications and Navaids Grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-slate-900/90 p-2.5 rounded-lg text-[10px] font-mono border border-slate-800">
+                        <div>
+                          <span className="text-slate-500 block">TOWER ATC:</span>
+                          <span className="text-sky-300 font-bold">{freqMhz} MHz</span>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-500 block">ICLS:</span>
+                          <span className="text-emerald-300 font-bold">
+                            {template.icls ? `Kanál ${template.icls.channel}` : 'N/A'}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-500 block">LINK 4:</span>
+                          <span className="text-purple-300 font-bold">
+                            {template.link4 ? `${(template.link4.frequencyHz / 1e6).toFixed(1)} MHz` : 'N/A'}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-500 block">BRC & RYCHLOST:</span>
+                          <span className="text-amber-300 font-bold">
+                            {template.defaultBrcDeg}° @ {template.speedKnots} kts
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Escorts List */}
+                      <div className="space-y-1 pt-1 text-[11px]">
+                        <span className="text-slate-400 font-semibold flex items-center gap-1">
+                          <ShieldAlert className="w-3 h-3 text-sky-400" />
+                          <span>Doprovodné lodě ({template.escorts.length}):</span>
+                        </span>
+                        <div className="text-slate-300 pl-4 space-y-0.5 text-[10.5px]">
+                          {template.escorts.map((esc, idx) => (
+                            <div key={idx} className="flex items-center gap-1.5 text-slate-400">
+                              <span className="text-sky-400">•</span>
+                              <strong className="text-slate-200">{esc.name}</strong>
+                              <span className="text-slate-500">({esc.role})</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Pedro Rescue Helicopter Badge */}
+                      {template.includeRescueHeli && (
+                        <div className="mt-1 flex items-center gap-2 p-1.5 rounded bg-emerald-950/40 border border-emerald-800/40 text-[11px] text-emerald-300">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                          <span>
+                            <strong>Záchranný vrtulník Pedro:</strong> {template.rescueHeliType || 'SH-60B'} na pozici Plane Guard (200 ft, 500m od lodi)
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => onSelectCarrierTemplate(template)}
+                      className={`w-full py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow mt-2 ${
+                        isBlue
+                          ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 ring-1 ring-blue-400/30'
+                          : 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/30 ring-1 ring-red-400/30'
+                      }`}
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Umístit svaz letadlové lodi na mapu</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* TAB 2: SAM BATTERIES */}
           {activeTab === 'sam' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {filteredSams.map((template) => {
@@ -178,7 +319,7 @@ export const TacticalSpawnerModal: React.FC<TacticalSpawnerModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: SUPPORT FLIGHTS */}
+          {/* TAB 3: SUPPORT FLIGHTS */}
           {activeTab === 'support' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {filteredSupport.map((template) => {

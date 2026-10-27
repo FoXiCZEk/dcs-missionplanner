@@ -1,5 +1,5 @@
 import type { Group, Theater, Unit, Waypoint } from '../types/dcs';
-import { latLonToDcs } from '../utils/coordinates';
+import { latLonToDcs, dcsToLatLon } from '../utils/coordinates';
 
 export interface SamComponent {
   type: string;
@@ -35,6 +35,43 @@ export interface SupportFlightTemplate {
   altitudeM: number;
   speedMs: number;
   orbitLengthNm: number;
+  description: string;
+}
+
+export interface CarrierEscortComponent {
+  type: string;
+  name: string;
+  role: string;
+  offsetX: number; // forward along heading in meters
+  offsetY: number; // starboard / right of heading in meters
+}
+
+export interface CarrierGroupTemplate {
+  id: string;
+  name: string;
+  shortName: string;
+  carrierType: string;
+  carrierName: string;
+  coalition: 'blue' | 'red';
+  isSupercarrier: boolean;
+  tacan: {
+    channel: number;
+    mode: 'X' | 'Y';
+    callsign: string;
+  };
+  icls?: {
+    channel: number;
+  };
+  link4?: {
+    frequencyHz: number;
+  };
+  atcFrequencyHz: number; // Hz
+  speedKnots: number;
+  routeLengthNm: number;
+  defaultBrcDeg: number;
+  escorts: CarrierEscortComponent[];
+  includeRescueHeli: boolean;
+  rescueHeliType?: string;
   description: string;
 }
 
@@ -449,5 +486,467 @@ export function createSupportFlightGroup(
     route: {
       points: waypoints,
     },
+  };
+}
+
+export const CARRIER_GROUP_TEMPLATES: CarrierGroupTemplate[] = [
+  // --- BLUE CSG (SUPERCARRIER & TARAWA) ---
+  {
+    id: 'cvn71_roosevelt_csg',
+    name: 'USS Theodore Roosevelt CSG (CVN-71 Supercarrier)',
+    shortName: 'CVN-71 Roosevelt CSG',
+    carrierType: 'CVN_71',
+    carrierName: 'USS Theodore Roosevelt',
+    coalition: 'blue',
+    isSupercarrier: true,
+    tacan: { channel: 71, mode: 'X', callsign: 'ROO' },
+    icls: { channel: 11 },
+    link4: { frequencyHz: 336000000 },
+    atcFrequencyHz: 127500000, // 127.500 MHz
+    speedKnots: 25,
+    routeLengthNm: 60,
+    defaultBrcDeg: 270,
+    includeRescueHeli: true,
+    rescueHeliType: 'SH-60B',
+    description: 'Kompletní úderná skupina Supercarrier (CVN-71) s animovanou posádkou paluby, křižníkem Ticonderoga, 2 torpédoborci Arleigh Burke, fregatou Perry a záchranným vrtulníkem Pedro (Plane Guard).',
+    escorts: [
+      { type: 'TICONDEROG', name: 'USS Normandy (CG-60)', role: 'Aegis Air Defense Cruiser', offsetX: 3800, offsetY: 800 },
+      { type: 'ArleighBurke', name: 'USS Arleigh Burke (DDG-51)', role: 'Guided Missile Destroyer', offsetX: 1600, offsetY: 2600 },
+      { type: 'ArleighBurke', name: 'USS Higgins (DDG-76)', role: 'Guided Missile Destroyer', offsetX: 1600, offsetY: -2600 },
+      { type: 'PERRY', name: 'USS Ingraham (FFG-61)', role: 'ASW Frigate', offsetX: -3600, offsetY: 0 },
+    ],
+  },
+  {
+    id: 'cvn73_washington_csg',
+    name: 'USS George Washington CSG (CVN-73 Supercarrier)',
+    shortName: 'CVN-73 Washington CSG',
+    carrierType: 'CVN_73',
+    carrierName: 'USS George Washington',
+    coalition: 'blue',
+    isSupercarrier: true,
+    tacan: { channel: 73, mode: 'X', callsign: 'GW' },
+    icls: { channel: 13 },
+    link4: { frequencyHz: 337000000 },
+    atcFrequencyHz: 128500000, // 128.500 MHz
+    speedKnots: 25,
+    routeLengthNm: 60,
+    defaultBrcDeg: 270,
+    includeRescueHeli: true,
+    rescueHeliType: 'SH-60B',
+    description: 'Úderný svaz Supercarrier (CVN-73) pro F/A-18C a F-14B/A. TACAN 73X (GW), ICLS 13, Link 4 337.000 MHz, křižník Ticonderoga a torpédoborce Arleigh Burke.',
+    escorts: [
+      { type: 'TICONDEROG', name: 'USS Cowpens (CG-63)', role: 'Aegis Air Defense Cruiser', offsetX: 3800, offsetY: -800 },
+      { type: 'ArleighBurke', name: 'USS John S. McCain (DDG-56)', role: 'Guided Missile Destroyer', offsetX: 1600, offsetY: 2600 },
+      { type: 'ArleighBurke', name: 'USS Mustin (DDG-89)', role: 'Guided Missile Destroyer', offsetX: 1600, offsetY: -2600 },
+      { type: 'PERRY', name: 'USS Gary (FFG-51)', role: 'ASW Frigate', offsetX: -3600, offsetY: 0 },
+    ],
+  },
+  {
+    id: 'cvn75_truman_csg',
+    name: 'USS Harry S. Truman CSG (CVN-75 Supercarrier)',
+    shortName: 'CVN-75 Truman CSG',
+    carrierType: 'CVN_75',
+    carrierName: 'USS Harry S. Truman',
+    coalition: 'blue',
+    isSupercarrier: true,
+    tacan: { channel: 75, mode: 'X', callsign: 'HST' },
+    icls: { channel: 15 },
+    link4: { frequencyHz: 338000000 },
+    atcFrequencyHz: 129500000, // 129.500 MHz
+    speedKnots: 25,
+    routeLengthNm: 60,
+    defaultBrcDeg: 270,
+    includeRescueHeli: true,
+    rescueHeliType: 'SH-60B',
+    description: 'Supercarrier CVN-75 s plným doprovodem křižníku Aegis, dvojicí moderních torpédoborců Flight IIA a plavbou proti větru pro stabilní letové operace.',
+    escorts: [
+      { type: 'TICONDEROG', name: 'USS San Jacinto (CG-56)', role: 'Aegis Air Defense Cruiser', offsetX: 3800, offsetY: 800 },
+      { type: 'ArleighBurke', name: 'USS Bulkeley (DDG-84)', role: 'Guided Missile Destroyer', offsetX: 1600, offsetY: 2600 },
+      { type: 'ArleighBurke', name: 'USS Forrest Sherman (DDG-98)', role: 'Guided Missile Destroyer', offsetX: 1600, offsetY: -2600 },
+      { type: 'PERRY', name: 'USS Simpson (FFG-56)', role: 'ASW Frigate', offsetX: -3600, offsetY: 0 },
+    ],
+  },
+  {
+    id: 'cvn72_lincoln_csg',
+    name: 'USS Abraham Lincoln CSG (CVN-72 Supercarrier)',
+    shortName: 'CVN-72 Lincoln CSG',
+    carrierType: 'CVN_72',
+    carrierName: 'USS Abraham Lincoln',
+    coalition: 'blue',
+    isSupercarrier: true,
+    tacan: { channel: 72, mode: 'X', callsign: 'LCN' },
+    icls: { channel: 12 },
+    link4: { frequencyHz: 339000000 },
+    atcFrequencyHz: 130500000, // 130.500 MHz
+    speedKnots: 25,
+    routeLengthNm: 60,
+    defaultBrcDeg: 270,
+    includeRescueHeli: true,
+    rescueHeliType: 'SH-60B',
+    description: 'Úderná skupina CVN-72 Lincoln se Supercarrier posádkou a doprovodem Ticonderoga a Arleigh Burke.',
+    escorts: [
+      { type: 'TICONDEROG', name: 'USS Mobile Bay (CG-53)', role: 'Aegis Air Defense Cruiser', offsetX: 3800, offsetY: 0 },
+      { type: 'ArleighBurke', name: 'USS Spruance (DDG-111)', role: 'Guided Missile Destroyer', offsetX: 1600, offsetY: 2600 },
+      { type: 'ArleighBurke', name: 'USS Michael Murphy (DDG-112)', role: 'Guided Missile Destroyer', offsetX: 1600, offsetY: -2600 },
+    ],
+  },
+  {
+    id: 'cvn74_stennis_csg',
+    name: 'USS John C. Stennis CSG (CVN-74 Supercarrier / Base)',
+    shortName: 'CVN-74 Stennis CSG',
+    carrierType: 'CVN_74',
+    carrierName: 'USS John C. Stennis',
+    coalition: 'blue',
+    isSupercarrier: true,
+    tacan: { channel: 74, mode: 'X', callsign: 'STN' },
+    icls: { channel: 14 },
+    atcFrequencyHz: 127000000, // 127.000 MHz
+    speedKnots: 25,
+    routeLengthNm: 60,
+    defaultBrcDeg: 270,
+    includeRescueHeli: true,
+    rescueHeliType: 'SH-60B',
+    description: 'Klasický nosič CVN-74 kompatibilní se základním DCS i Supercarrier modulem. TACAN 74X (STN), ICLS 14, křižník a torpédoborec.',
+    escorts: [
+      { type: 'TICONDEROG', name: 'USS Lake Champlain (CG-57)', role: 'Aegis Air Defense Cruiser', offsetX: 3800, offsetY: 0 },
+      { type: 'ArleighBurke', name: 'USS Decatur (DDG-73)', role: 'Guided Missile Destroyer', offsetX: 1600, offsetY: 2600 },
+      { type: 'PERRY', name: 'USS Rodney M. Davis (FFG-60)', role: 'ASW Frigate', offsetX: -3600, offsetY: 0 },
+    ],
+  },
+  {
+    id: 'tarawa_arg',
+    name: 'USS Tarawa Amphibious Ready Group (LHA-1 ARG)',
+    shortName: 'LHA-1 Tarawa ARG',
+    carrierType: 'LHA_Tarawa',
+    carrierName: 'USS Tarawa',
+    coalition: 'blue',
+    isSupercarrier: false,
+    tacan: { channel: 1, mode: 'X', callsign: 'TWR' },
+    atcFrequencyHz: 127500000, // 127.500 MHz
+    speedKnots: 20,
+    routeLengthNm: 50,
+    defaultBrcDeg: 270,
+    includeRescueHeli: true,
+    rescueHeliType: 'UH-1H',
+    description: 'Výsadková skupina pro letouny s kolmým vzletem AV-8B Harrier a vrtulníky (UH-1H, AH-64D). Doprovod Ticonderoga a Arleigh Burke.',
+    escorts: [
+      { type: 'TICONDEROG', name: 'USS Mobile Bay (CG-53)', role: 'Air Defense Cruiser', offsetX: 3200, offsetY: 600 },
+      { type: 'ArleighBurke', name: 'USS Arleigh Burke (DDG-51)', role: 'Destroyer', offsetX: 1400, offsetY: 2200 },
+      { type: 'PERRY', name: 'USS Ford (FFG-54)', role: 'Frigate', offsetX: -3200, offsetY: 0 },
+    ],
+  },
+
+  // --- RED CARRIER BATTLE GROUP ---
+  {
+    id: 'kuznetsov_cbg',
+    name: 'Admiral Kuznetsov Carrier Battle Group (KUZ-063)',
+    shortName: 'Admiral Kuznetsov CBG',
+    carrierType: 'KUZNECOW',
+    carrierName: 'Admiral Flota Sovetskogo Soyuza Kuznetsov',
+    coalition: 'red',
+    isSupercarrier: false,
+    tacan: { channel: 0, mode: 'X', callsign: 'KUZ' },
+    atcFrequencyHz: 127500000,
+    speedKnots: 22,
+    routeLengthNm: 50,
+    defaultBrcDeg: 270,
+    includeRescueHeli: true,
+    rescueHeliType: 'Ka-27',
+    description: 'Těžký letadlový křižník Admirál Kuzněcov pro palubní stíhačky Su-33 s doprovodem raketového křižníku Moskva (Slava-class), korvet Albatros a záchranným vrtulníkem Ka-27 Helix.',
+    escorts: [
+      { type: 'MOSKVA', name: 'Moskva (Slava-class Cruiser)', role: 'Heavy Guided Missile Cruiser', offsetX: 3500, offsetY: 1200 },
+      { type: 'ALBATROS', name: 'MPK-118 Suzdalets (Grisha)', role: 'ASW Corvette', offsetX: 1500, offsetY: -2000 },
+      { type: 'ALBATROS', name: 'MPK-199 Kasimov (Grisha)', role: 'ASW Corvette', offsetX: -2500, offsetY: 1800 },
+    ],
+  },
+];
+
+export interface CreatedCarrierStrikeGroupResult {
+  carrierGroup: Group;
+  rescueHeliGroup: Group | null;
+  totalUnitsCount: number;
+  totalGroupsCount: number;
+}
+
+/**
+ * Creates a complete Carrier Strike Group (CSG) with Supercarrier/CVN, escorts, and optional Pedro rescue helicopter
+ */
+export function createCarrierStrikeGroup(
+  template: CarrierGroupTemplate,
+  theater: Theater,
+  centerLat: number,
+  centerLon: number,
+  brcHeadingDeg: number,
+  startGroupId: number,
+  startUnitId: number
+): CreatedCarrierStrikeGroupResult {
+  const centerDcs = latLonToDcs(theater, centerLat, centerLon);
+  const brcRad = (brcHeadingDeg * Math.PI) / 180;
+  const cosH = Math.cos(brcRad);
+  const sinH = Math.sin(brcRad);
+
+  const speedMs = template.speedKnots * 0.514444; // knots to m/s
+  const routeMeters = template.routeLengthNm * 1852; // NM to meters
+
+  let currentUnitId = startUnitId;
+  const carrierUnitId = currentUnitId++;
+
+  // 1. Carrier Lead Unit
+  const carrierUnit: Unit = {
+    unitId: carrierUnitId,
+    name: `${template.carrierName} #${carrierUnitId}`,
+    type: template.carrierType,
+    skill: 'Excellent',
+    heading: brcRad,
+    x: centerDcs.x,
+    y: centerDcs.y,
+    lat: centerLat,
+    lon: centerLon,
+    alt: 0,
+    speed: speedMs,
+    radio: {
+      frequency: template.atcFrequencyHz,
+      modulation: 0, // AM
+    },
+    callsign: {
+      [1]: 1,
+      [2]: 1,
+      [3]: 1,
+      name: template.tacan.callsign,
+    },
+  };
+
+  // 2. Escort Units
+  const escortUnits: Unit[] = template.escorts.map((escort) => {
+    const uId = currentUnitId++;
+    // Rotate offset by carrier BRC heading
+    const dcsX = centerDcs.x + escort.offsetX * cosH - escort.offsetY * sinH;
+    const dcsY = centerDcs.y + escort.offsetX * sinH + escort.offsetY * cosH;
+    const pos = dcsToLatLon(theater, dcsX, dcsY);
+
+    return {
+      unitId: uId,
+      name: `${escort.name} #${uId}`,
+      type: escort.type,
+      skill: 'Excellent',
+      heading: brcRad,
+      x: dcsX,
+      y: dcsY,
+      lat: pos.lat,
+      lon: pos.lon,
+      alt: 0,
+      speed: speedMs,
+      radio: {
+        frequency: template.atcFrequencyHz,
+        modulation: 0,
+      },
+    };
+  });
+
+  const allShipUnits = [carrierUnit, ...escortUnits];
+
+  // 3. Carrier Waypoints & Tasks (TACAN, ICLS, Link 4)
+  const carrierTasks: any[] = [];
+  let taskNum = 1;
+
+  // TACAN
+  if (template.tacan && template.tacan.channel > 0) {
+    carrierTasks.push({
+      number: taskNum++,
+      auto: false,
+      id: 'WrappedAction',
+      enabled: true,
+      action: {
+        id: 'ActivateBeacon',
+        params: {
+          type: 4, // TACAN
+          system: 3,
+          channel: template.tacan.channel,
+          modeChannel: template.tacan.mode,
+          callsign: template.tacan.callsign,
+          bearing: true,
+          frequency: 1030000000,
+        },
+      },
+    });
+  }
+
+  // ICLS (Supercarrier Instrument Carrier Landing System)
+  if (template.icls) {
+    carrierTasks.push({
+      number: taskNum++,
+      auto: false,
+      id: 'WrappedAction',
+      enabled: true,
+      action: {
+        id: 'ActivateICLS',
+        params: {
+          type: 131072,
+          channel: template.icls.channel,
+          unitId: carrierUnitId,
+        },
+      },
+    });
+  }
+
+  // Link 4 Datalink (F-14 Tomcat / F/A-18C Hornet)
+  if (template.link4) {
+    carrierTasks.push({
+      number: taskNum++,
+      auto: false,
+      id: 'WrappedAction',
+      enabled: true,
+      action: {
+        id: 'ActivateLink4',
+        params: {
+          frequency: template.link4.frequencyHz,
+        },
+      },
+    });
+  }
+
+  // Endpoint along BRC
+  const endDcsX = centerDcs.x + routeMeters * cosH;
+  const endDcsY = centerDcs.y + routeMeters * sinH;
+  const endPos = dcsToLatLon(theater, endDcsX, endDcsY);
+
+  const waypoints: Waypoint[] = [
+    {
+      id: 1,
+      name: `WP 1 - BRC Anchor (${template.carrierName})`,
+      x: centerDcs.x,
+      y: centerDcs.y,
+      lat: centerLat,
+      lon: centerLon,
+      alt: 0,
+      alt_type: 'BARO',
+      speed: speedMs,
+      action: 'Turning Point',
+      type: 'Turning Point',
+      task: {
+        id: 'ComboTask',
+        params: {
+          tasks: carrierTasks,
+        },
+      },
+    },
+    {
+      id: 2,
+      name: `WP 2 - Recovery Leg End (${template.routeLengthNm} NM @ ${template.speedKnots} kts)`,
+      x: endDcsX,
+      y: endDcsY,
+      lat: endPos.lat,
+      lon: endPos.lon,
+      alt: 0,
+      alt_type: 'BARO',
+      speed: speedMs,
+      action: 'Turning Point',
+      type: 'Turning Point',
+    },
+  ];
+
+  const carrierGroupId = startGroupId;
+  const carrierGroup: Group = {
+    groupId: carrierGroupId,
+    name: `${template.name} #${carrierGroupId}`,
+    category: 'ship',
+    coalition: template.coalition,
+    countryId: template.coalition === 'blue' ? 2 : 0,
+    countryName: template.coalition === 'blue' ? 'USA' : 'Russia',
+    units: allShipUnits,
+    route: {
+      points: waypoints,
+    },
+  };
+
+  // 4. Rescue Helicopter (Pedro / Plane Guard)
+  let rescueHeliGroup: Group | null = null;
+  if (template.includeRescueHeli) {
+    const heliGroupId = startGroupId + 1;
+    const heliUnitId = currentUnitId++;
+    const heliType = template.rescueHeliType || (template.coalition === 'blue' ? 'SH-60B' : 'Ka-27');
+
+    // Stationed 600m forward and 450m starboard of the carrier
+    const heliDcsX = centerDcs.x + 600 * cosH - 450 * sinH;
+    const heliDcsY = centerDcs.y + 600 * sinH + 450 * cosH;
+    const heliPos = dcsToLatLon(theater, heliDcsX, heliDcsY);
+
+    const heliEndDcsX = heliDcsX + routeMeters * cosH;
+    const heliEndDcsY = heliDcsY + routeMeters * sinH;
+    const heliEndPos = dcsToLatLon(theater, heliEndDcsX, heliEndDcsY);
+
+    const heliUnit: Unit = {
+      unitId: heliUnitId,
+      name: `Pedro 1-1 (${heliType} Plane Guard) #${heliUnitId}`,
+      type: heliType,
+      skill: 'Excellent',
+      heading: brcRad,
+      x: heliDcsX,
+      y: heliDcsY,
+      lat: heliPos.lat,
+      lon: heliPos.lon,
+      alt: 60, // 200 ft MSL
+      speed: speedMs,
+      radio: {
+        frequency: template.atcFrequencyHz,
+        modulation: 0,
+      },
+      callsign: {
+        [1]: 1,
+        [2]: 1,
+        [3]: 1,
+        name: 'Pedro 1-1',
+      },
+    };
+
+    rescueHeliGroup = {
+      groupId: heliGroupId,
+      name: `Pedro 1-1 Plane Guard (${template.shortName}) #${heliGroupId}`,
+      category: 'helicopter',
+      coalition: template.coalition,
+      countryId: template.coalition === 'blue' ? 2 : 0,
+      countryName: template.coalition === 'blue' ? 'USA' : 'Russia',
+      units: [heliUnit],
+      route: {
+        points: [
+          {
+            id: 1,
+            name: `WP 1 - Plane Guard Station (${template.carrierName})`,
+            x: heliDcsX,
+            y: heliDcsY,
+            lat: heliPos.lat,
+            lon: heliPos.lon,
+            alt: 60,
+            alt_type: 'RADIO',
+            speed: speedMs,
+            action: 'Turning Point',
+            type: 'Turning Point',
+          },
+          {
+            id: 2,
+            name: `WP 2 - Plane Guard Recovery End`,
+            x: heliEndDcsX,
+            y: heliEndDcsY,
+            lat: heliEndPos.lat,
+            lon: heliEndPos.lon,
+            alt: 60,
+            alt_type: 'RADIO',
+            speed: speedMs,
+            action: 'Turning Point',
+            type: 'Turning Point',
+          },
+        ],
+      },
+    };
+  }
+
+  const totalGroups = rescueHeliGroup ? 2 : 1;
+  const totalUnits = allShipUnits.length + (rescueHeliGroup ? 1 : 0);
+
+  return {
+    carrierGroup,
+    rescueHeliGroup,
+    totalUnitsCount: totalUnits,
+    totalGroupsCount: totalGroups,
   };
 }

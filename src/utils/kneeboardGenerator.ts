@@ -227,10 +227,11 @@ export function renderKneeboardToCanvas(group: Group, missionData: MissionData):
   ctx.fillText('2. COMMUNICATIONS & BASES', leftX, curY);
 
   const commsBoxY = curY + 10;
+  const boxHeight = 220;
   ctx.fillStyle = '#0f172a';
-  ctx.fillRect(leftX, commsBoxY, colWidth, 190);
+  ctx.fillRect(leftX, commsBoxY, colWidth, boxHeight);
   ctx.strokeStyle = '#334155';
-  ctx.strokeRect(leftX, commsBoxY, colWidth, 190);
+  ctx.strokeRect(leftX, commsBoxY, colWidth, boxHeight);
 
   let cY = commsBoxY + 24;
   ctx.font = 'bold 12px monospace';
@@ -260,48 +261,142 @@ export function renderKneeboardToCanvas(group: Group, missionData: MissionData):
     cY += 18;
   });
 
-  // Box 2: SUPPORT ASSETS (Tankers & AWACS) (Right)
+  // Box 2: SUPPORT ASSETS (Carriers, Tankers & AWACS) (Right)
   ctx.fillStyle = '#e2e8f0';
   ctx.font = 'bold 15px monospace';
-  ctx.fillText('3. SUPPORT ASSETS (TANKER & AWACS)', rightX, curY);
+  ctx.fillText('3. SUPPORT ASSETS & CARRIERS (CSG / TKR / AWACS)', rightX, curY);
 
   ctx.fillStyle = '#0f172a';
-  ctx.fillRect(rightX, commsBoxY, colWidth, 190);
+  ctx.fillRect(rightX, commsBoxY, colWidth, boxHeight);
   ctx.strokeStyle = '#334155';
-  ctx.strokeRect(rightX, commsBoxY, colWidth, 190);
+  ctx.strokeRect(rightX, commsBoxY, colWidth, boxHeight);
 
-  let sY = commsBoxY + 24;
+  let sY = commsBoxY + 22;
+
+  // Search carriers in missionData
+  const carrierGroups = missionData.groups.filter(
+    (g) =>
+      g.category === 'ship' &&
+      g.units.some(
+        (u) =>
+          u.type.startsWith('CVN') ||
+          u.type === 'Stennis' ||
+          u.type === 'Forrestal' ||
+          u.type === 'LHA_Tarawa' ||
+          u.type.toUpperCase().includes('KUZNE')
+      )
+  );
 
   // Search tankers and AWACS in missionData
   const supportGroups = missionData.groups.filter(
     (g) =>
-      g.units.some((u) => u.type.includes('135') || u.type.includes('130') || u.type.includes('78') || u.type.includes('E-3') || u.type.includes('A-50'))
+      g.units.some(
+        (u) =>
+          u.type.includes('135') ||
+          u.type.includes('130') ||
+          u.type.includes('78') ||
+          u.type.includes('E-3') ||
+          u.type.includes('A-50')
+      )
   );
 
+  // Check Pedro Plane Guard rescue helicopter
+  const pedroHeli = missionData.groups.find(
+    (g) =>
+      g.name.toLowerCase().includes('pedro') ||
+      g.units.some((u) => u.name?.toLowerCase().includes('pedro'))
+  );
+
+  let renderedSupportCount = 0;
+
+  // 1. Render Carrier Strike Groups if present
+  carrierGroups.forEach((cg) => {
+    if (sY > commsBoxY + boxHeight - 45) return;
+    const leadShip = cg.units[0];
+    const catalogItem = DCS_CATALOG.find((c) => c.id === leadShip?.type);
+    const shipName = catalogItem?.name || leadShip?.type || 'Aircraft Carrier';
+
+    // Extract navaids from waypoint tasks
+    let tacanStr = 'TCN: ---';
+    let iclsStr = 'ICLS: ---';
+    let link4Str = '';
+    const wp1 = cg.route.points[0];
+    const wp2 = cg.route.points[1];
+
+    if (wp1?.task && (wp1.task as any).params?.tasks) {
+      const tasks = (wp1.task as any).params.tasks as any[];
+      for (const t of tasks) {
+        if (t.id === 'ActivateBeacon' || t.key === 'ActivateBeacon') {
+          const p = t.params;
+          tacanStr = `TCN: ${p.channel}${p.modeChannel || 'X'}${p.callsign ? ' (' + p.callsign + ')' : ''}`;
+        } else if (t.id === 'ActivateICLS' || t.key === 'ActivateICLS') {
+          iclsStr = `ICLS: Ch ${t.params?.channel}`;
+        } else if (t.id === 'ActivateLink4' || t.key === 'ActivateLink4') {
+          const freqMhz = t.params?.frequency ? (t.params.frequency / 1000000).toFixed(1) : '';
+          link4Str = freqMhz ? ` | LNK4: ${freqMhz}M` : '';
+        }
+      }
+    }
+
+    const towerMhz = leadShip?.radio?.frequency ? (leadShip.radio.frequency / 1000000).toFixed(3) : '127.500';
+    let brcDeg = 270;
+    let spdKts = 25;
+    if (wp1 && wp2) {
+      brcDeg = Math.round(calculateBearing(wp1.lat, wp1.lon, wp2.lat, wp2.lon));
+      spdKts = Math.round((wp1.speed || 12.86) * 1.94384);
+    } else if (leadShip?.heading !== undefined) {
+      brcDeg = Math.round((leadShip.heading * 180) / Math.PI);
+    }
+    if (brcDeg < 0) brcDeg += 360;
+
+    ctx.font = 'bold 12px monospace';
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText(`⚓ CSG: ${shipName.slice(0, 30)}`, rightX + 15, sY);
+    sY += 17;
+
+    ctx.font = '11px monospace';
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillText(`${tacanStr} | ${iclsStr}${link4Str}`, rightX + 18, sY);
+    sY += 16;
+
+    ctx.fillStyle = '#fbbf24';
+    const pedroNote = pedroHeli ? ' | Pedro: ON STA' : '';
+    ctx.fillText(`TWR: ${towerMhz} MHz | BRC: ${brcDeg.toString().padStart(3, '0')}° @ ${spdKts}kt${pedroNote}`, rightX + 18, sY);
+    sY += 22;
+
+    renderedSupportCount++;
+  });
+
+  // 2. Render Tankers & AWACS
   if (supportGroups.length > 0) {
-    supportGroups.slice(0, 4).forEach((sg) => {
+    supportGroups.forEach((sg) => {
+      if (sY > commsBoxY + boxHeight - 35) return;
       const sUnit = sg.units[0];
       const sFreq = sUnit.radio?.frequency ? (sUnit.radio.frequency / 1000000).toFixed(3) : '---';
       const sAltFt = Math.round(sUnit.alt * 3.28084);
 
       ctx.font = 'bold 12px monospace';
       ctx.fillStyle = '#a3e635';
-      ctx.fillText(`• ${sg.name.slice(0, 25)}`, rightX + 15, sY);
-      sY += 18;
+      ctx.fillText(`• ${sg.name.slice(0, 28)}`, rightX + 15, sY);
+      sY += 17;
 
       ctx.font = '11px monospace';
       ctx.fillStyle = '#cbd5e1';
       ctx.fillText(`  FREQ: ${sFreq} MHz | ALT: ${sAltFt} ft | SPD: ${Math.round(sUnit.speed || 150)} kts`, rightX + 15, sY);
-      sY += 24;
+      sY += 21;
+
+      renderedSupportCount++;
     });
-  } else {
-    ctx.font = '12px monospace';
-    ctx.fillStyle = '#64748b';
-    ctx.fillText('Žádný dedikovaný tanker ani AWACS nebyl v misi nalezen.', rightX + 20, sY + 20);
-    ctx.fillText('Použijte tlačítko "Podpora & Tankery" na mapě.', rightX + 20, sY + 40);
   }
 
-  curY = commsBoxY + 215;
+  if (renderedSupportCount === 0) {
+    ctx.font = '12px monospace';
+    ctx.fillStyle = '#64748b';
+    ctx.fillText('Žádný CSG, tanker ani AWACS nebyl v misi nalezen.', rightX + 20, sY + 20);
+    ctx.fillText('Použijte tlačítko "Nasazení jednotek" na mapě.', rightX + 20, sY + 40);
+  }
+
+  curY = commsBoxY + boxHeight + 25;
 
   // --- THREAT MATRIX & SAM SITES ---
   ctx.fillStyle = '#e2e8f0';

@@ -4,6 +4,7 @@ import type { MissionData, Group, TriggerZone, CoalitionType } from '../types/dc
 import {
   getTheaterConfig,
   latLonToDcs,
+  dcsToLatLon,
   calculateDistance,
   calculateBearing,
   formatDdm,
@@ -33,8 +34,8 @@ interface TacticalMapProps {
   selectedGroup: Group | null;
   selectedZone: TriggerZone | null;
   selectedWaypointId: number | null;
-  addMode: 'none' | 'addBlue' | 'addRed' | 'addZone' | 'addWp' | 'placeSam' | 'placeSupport';
-  onSetAddMode: (mode: 'none' | 'addBlue' | 'addRed' | 'addZone' | 'addWp' | 'placeSam' | 'placeSupport') => void;
+  addMode: 'none' | 'addBlue' | 'addRed' | 'addZone' | 'addWp' | 'placeSam' | 'placeSupport' | 'placeCarrier';
+  onSetAddMode: (mode: 'none' | 'addBlue' | 'addRed' | 'addZone' | 'addWp' | 'placeSam' | 'placeSupport' | 'placeCarrier') => void;
   onSelectGroup: (group: Group | null) => void;
   onSelectZone: (zone: TriggerZone | null) => void;
   onSelectWaypoint: (wpId: number | null) => void;
@@ -45,6 +46,7 @@ interface TacticalMapProps {
   onAddWaypoint: (groupId: number, lat: number, lon: number) => void;
   onPlaceSamBattery?: (lat: number, lon: number) => void;
   onPlaceSupportFlight?: (lat: number, lon: number) => void;
+  onPlaceCarrierGroup?: (lat: number, lon: number) => void;
   onOpenKneeboard?: () => void;
   onOpenSpawner?: () => void;
   panToCoordinates?: { lat: number; lon: number; ts: number } | null;
@@ -69,6 +71,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   onAddWaypoint,
   onPlaceSamBattery,
   onPlaceSupportFlight,
+  onPlaceCarrierGroup,
   onOpenKneeboard,
   onOpenSpawner,
   panToCoordinates,
@@ -225,6 +228,9 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       } else if (addMode === 'placeSupport') {
         onPlaceSupportFlight?.(lat, lng);
         onSetAddMode('none');
+      } else if (addMode === 'placeCarrier') {
+        onPlaceCarrierGroup?.(lat, lng);
+        onSetAddMode('none');
       } else if (addMode === 'addBlue') {
         onAddGroup(lat, lng, 'blue');
         onSetAddMode('none');
@@ -261,6 +267,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     onAddWaypoint,
     onPlaceSamBattery,
     onPlaceSupportFlight,
+    onPlaceCarrierGroup,
     onSelectGroup,
     onSelectZone,
     onSelectWaypoint,
@@ -639,9 +646,114 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           }).addTo(layer);
         }
 
-        const unitIcon = L.divIcon({
-          className: 'custom-unit-marker',
-          html: `
+        const isCarrier =
+          unit.type.startsWith('CVN') ||
+          unit.type === 'Stennis' ||
+          unit.type === 'Forrestal' ||
+          unit.type === 'LHA_Tarawa' ||
+          unit.type === 'KUZNECOW';
+
+        const isEscortShip =
+          unit.type === 'TICONDEROG' ||
+          unit.type === 'ArleighBurke' ||
+          unit.type === 'PERRY' ||
+          unit.type === 'MOSKVA' ||
+          unit.type === 'PIOTR' ||
+          unit.type === 'NEUSTRASH' ||
+          unit.type === 'ALBATROS';
+
+        const isRescueHeli = unit.type === 'SH-60B' || unit.name.includes('Pedro');
+
+        // Draw Carrier BRC Recovery & Approach Line (12 NM along BRC)
+        if (isCarrier) {
+          const brcRad = heading;
+          const cosBrc = Math.cos(brcRad);
+          const sinBrc = Math.sin(brcRad);
+          const grooveDistM = 12 * 1852;
+          const carrierDcs = latLonToDcs(missionData.theatre, unit.lat, unit.lon);
+
+          const grooveStartDcs = {
+            x: carrierDcs.x - grooveDistM * cosBrc,
+            y: carrierDcs.y - grooveDistM * sinBrc,
+          };
+          const grooveEndDcs = {
+            x: carrierDcs.x + grooveDistM * cosBrc,
+            y: carrierDcs.y + grooveDistM * sinBrc,
+          };
+          const grooveStart = dcsToLatLon(missionData.theatre, grooveStartDcs.x, grooveStartDcs.y);
+          const grooveEnd = dcsToLatLon(missionData.theatre, grooveEndDcs.x, grooveEndDcs.y);
+
+          L.polyline(
+            [
+              [grooveStart.lat, grooveStart.lon],
+              [unit.lat, unit.lon],
+              [grooveEnd.lat, grooveEnd.lon],
+            ],
+            {
+              color: '#38bdf8',
+              weight: 1.5,
+              dashArray: '5, 5',
+              opacity: 0.65,
+            }
+          ).addTo(layer);
+        }
+
+        let unitIconHtml = '';
+        let iconSize: [number, number] = [32, 32];
+        let iconAnchor: [number, number] = [16, 16];
+
+        if (isCarrier) {
+          iconSize = [44, 44];
+          iconAnchor = [22, 22];
+          unitIconHtml = `
+            <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; cursor: grab;">
+              <div style="position: absolute; transform: rotate(${headingDeg}deg); width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+                <svg width="40" height="40" viewBox="0 0 48 48" fill="none">
+                  <path d="M21 2 L27 2 L30 14 L30 44 L18 44 L18 14 Z" fill="#0f172a" stroke="${isSelected ? '#f59e0b' : coalColor}" stroke-width="2.2" />
+                  <path d="M18 18 L10 38 L14 42 L22 28 Z" fill="rgba(56, 189, 248, 0.45)" stroke="${isSelected ? '#f59e0b' : coalColor}" stroke-width="1.5" />
+                  <rect x="27" y="24" width="3.5" height="9" fill="${isSelected ? '#f59e0b' : '#38bdf8'}" rx="1" />
+                </svg>
+              </div>
+              <div style="position: absolute; bottom: -10px; background: rgba(15, 23, 42, 0.9); border: 1px solid ${isSelected ? '#f59e0b' : coalColor}; border-radius: 4px; padding: 1px 4px; font-size: 9px; font-weight: 800; color: ${isSelected ? '#f59e0b' : '#38bdf8'}; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.6);">
+                ⚓ ${unit.name.split('#')[0].replace('USS', '').trim()}
+              </div>
+            </div>
+          `;
+        } else if (isEscortShip) {
+          iconSize = [34, 34];
+          iconAnchor = [17, 17];
+          unitIconHtml = `
+            <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; cursor: grab;">
+              <div style="position: absolute; transform: rotate(${headingDeg}deg); width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;">
+                <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+                  <path d="M16 2 L20 10 L19 28 L13 28 L12 10 Z" fill="#0f172a" stroke="${isSelected ? '#f59e0b' : coalColor}" stroke-width="2" />
+                  <rect x="14" y="14" width="4" height="6" fill="${isSelected ? '#f59e0b' : coalColor}" rx="1" />
+                </svg>
+              </div>
+              <div style="position: absolute; bottom: -8px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 1px 3px; font-size: 9px; white-space: nowrap; color: #cbd5e1;">
+                ${unit.name.split('#')[0].trim()}
+              </div>
+            </div>
+          `;
+        } else if (isRescueHeli) {
+          iconSize = [32, 32];
+          iconAnchor = [16, 16];
+          unitIconHtml = `
+            <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; cursor: grab;">
+              <div style="position: absolute; transform: rotate(${headingDeg}deg); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                <div style="width: 20px; height: 2px; background: #38bdf8; position: absolute;"></div>
+                <div style="width: 2px; height: 20px; background: #38bdf8; position: absolute;"></div>
+              </div>
+              <div style="width: 18px; height: 18px; background: #0284c7; border: 2px solid #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ffffff; font-weight: 900; font-size: 9px; box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);">
+                P
+              </div>
+              <div style="position: absolute; bottom: -10px; background: rgba(15, 23, 42, 0.9); border: 1px solid #38bdf8; border-radius: 3px; padding: 1px 3px; font-size: 9px; white-space: nowrap; color: #38bdf8;">
+                Pedro (SAR)
+              </div>
+            </div>
+          `;
+        } else {
+          unitIconHtml = `
             <div style="
               position: relative;
               display: flex;
@@ -705,15 +817,75 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                 ${unit.name}
               </div>
             </div>
-          `,
-          iconSize: [32, 32],
-          iconAnchor: [16, 16],
+          `;
+        }
+
+        const unitIcon = L.divIcon({
+          className: 'custom-unit-marker',
+          html: unitIconHtml,
+          iconSize,
+          iconAnchor,
         });
 
         const unitMarker = L.marker([unit.lat, unit.lon], {
           icon: unitIcon,
           draggable: true,
         }).addTo(layer);
+
+        // Carrier popup binding
+        if (isCarrier) {
+          const tacanTask = group.route?.points?.[0]?.task?.params?.tasks?.find(
+            (t: any) => t.action?.id === 'ActivateBeacon'
+          )?.action?.params;
+          const iclsTask = group.route?.points?.[0]?.task?.params?.tasks?.find(
+            (t: any) => t.action?.id === 'ActivateICLS'
+          )?.action?.params;
+          const link4Task = group.route?.points?.[0]?.task?.params?.tasks?.find(
+            (t: any) => t.action?.id === 'ActivateLink4'
+          )?.action?.params;
+
+          const tacanInfo = tacanTask ? `${tacanTask.channel}${tacanTask.modeChannel} (${tacanTask.callsign})` : 'N/A';
+          const iclsInfo = iclsTask ? `Kanál ${iclsTask.channel}` : 'N/A';
+          const link4Info = link4Task ? `${(link4Task.frequency / 1e6).toFixed(1)} MHz` : 'N/A';
+          const atcInfo = unit.radio?.frequency ? `${(unit.radio.frequency / 1e6).toFixed(3)} MHz` : '127.500 MHz';
+          const brcInfo = `${Math.round(headingDeg)}°`;
+          const spdKts = Math.round((unit.speed || 12.86) * 1.94384);
+
+          const carrierPopup = `
+            <div style="font-family: inherit; font-size: 12px; line-height: 1.4; color: #f8fafc; min-width: 220px;">
+              <div style="font-weight: 800; color: #38bdf8; font-size: 13px; margin-bottom: 2px;">⚓ ${unit.name}</div>
+              <div style="background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 4px; padding: 2px 6px; font-size: 10px; color: #38bdf8; font-weight: bold; margin-bottom: 6px;">
+                ★ DCS SUPERCARRIER READY
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 11px; margin-bottom: 6px; background: rgba(15,23,42,0.6); padding: 4px; border-radius: 4px;">
+                <div>TACAN: <strong style="color: #f59e0b;">${tacanInfo}</strong></div>
+                <div>ICLS: <strong style="color: #4ade80;">${iclsInfo}</strong></div>
+                <div>LINK 4: <strong style="color: #c084fc;">${link4Info}</strong></div>
+                <div>TOWER: <strong style="color: #38bdf8;">${atcInfo}</strong></div>
+                <div>BRC: <strong style="color: #f59e0b;">${brcInfo}</strong></div>
+                <div>RYCHLOST: <strong style="color: #f8fafc;">${spdKts} kts</strong></div>
+              </div>
+              <div style="color: #94a3b8; font-size: 10px; margin-bottom: 6px;">
+                Doprovodných plavidel ve svazu: <strong>${group.units.length - 1}</strong>
+              </div>
+              <div style="border-top: 1px solid #334155; padding-top: 6px;">
+                <button id="spawn-f18-${unit.unitId}" style="width: 100%; background: #0284c7; color: white; border: none; border-radius: 4px; padding: 4px 6px; font-size: 10px; cursor: pointer; font-weight: bold;">
+                  + Vytvořit slot pro F/A-18C na palubě
+                </button>
+              </div>
+            </div>
+          `;
+          unitMarker.bindPopup(carrierPopup, { className: 'tactical-popup' });
+          unitMarker.on('popupopen', () => {
+            const btn = document.getElementById(`spawn-f18-${unit.unitId}`);
+            if (btn) {
+              btn.onclick = () => {
+                onAddGroup(unit.lat, unit.lon, group.coalition);
+                unitMarker.closePopup();
+              };
+            }
+          });
+        }
 
         unitMarker.on('click', (e) => {
           L.DomEvent.stopPropagation(e);
@@ -1052,6 +1224,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                   ? `Plánování trasy pro ${selectedGroup?.name}: Kliknutím do mapy umístíte další waypoint`
                   : addMode === 'placeSam'
                   ? 'Klikněte do mapy na místo pro umístění vybrané baterie PVO'
+                  : addMode === 'placeCarrier'
+                  ? 'Klikněte do moře / vodní plochy pro nasazení svazu letadlové lodi (Supercarrier CSG & Pedro)'
                   : addMode === 'placeSupport'
                   ? 'Klikněte do mapy pro ukotvení vyčkávacího okruhu tankeru / AWACS'
                   : 'Klikněte do mapy pro umístění objektu'}
